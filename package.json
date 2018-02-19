@@ -4,19 +4,17 @@
   "description": "",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cozy/cozy-konnector-mgen.git"
+    "url": "git+https://github.com/konnectors/cozy-konnector-mgen.git"
   },
   "keywords": [],
   "author": "",
   "license": "AGPL-3.0",
+  "main": "index.js",
   "renovate": {
     "extends": ["config:base"],
     "patch": {
       "automerge": true
     }
-  },
-  "dependencies": {
-    "cozy-konnector-libs": "3.2.5"
   },
   "scripts": {
     "start": "node index.js",
@@ -27,8 +25,11 @@
     "standalone:replay": "REPLAY=replay cozy-konnector-standalone",
     "prettier": "prettier --write '*.js' && eslint --fix '*.js'",
     "build": "webpack",
-    "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/cozy/cozy-konnector-mgen.git",
+    "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-mgen.git",
     "deploy:travis": "git-directory-deploy --username Cozy --email contact@cozycloud.cc --directory build/ --repo=https://$GITHUB_TOKEN@github.com/cozy/cozy-konnector-mgen.git"
+  },
+  "dependencies": {
+    "cozy-konnector-libs": "3.2.5"
   },
   "devDependencies": {
     "copy-webpack-plugin": "4.3.1",
