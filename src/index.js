@@ -1,229 +1,288 @@
-const {BaseKonnector, requestFactory, log, saveFiles, saveBills, errors, retry} = require('cozy-konnector-libs')
-const moment = require('moment')
-const bluebird = require('bluebird')
+const {
+  BaseKonnector,
+  requestFactory,
+  log,
+  saveFiles,
+  saveBills,
+  errors,
+  retry
+} = require("cozy-konnector-libs");
+const moment = require("moment");
+const bluebird = require("bluebird");
 
 let request = requestFactory({
   cheerio: true,
   json: false,
   // debug: true,
   jar: true
-})
+});
 
-const baseUrl = 'https://www.mgen.fr'
+const baseUrl = "https://www.mgen.fr";
 
-const connector = new BaseKonnector(start)
+const connector = new BaseKonnector(start);
 
-function start (fields) {
-  return connector.logIn(fields)
-  .then(connector.fetchCards)
-  .then(connector.getSectionsUrls)
-  .then(sections => {
-    return connector.fetchAttestationMutuelle(sections.mutuelle, fields)
-    .then(() => connector.fetchReimbursements(sections.reimbursements))
-  })
-  .then(entries => saveBills(entries, fields.folderPath, {
-    timeout: Date.now() + 60 * 1000,
-    identifiers: 'MGEN'
-  }))
+function start(fields) {
+  return connector
+    .logIn(fields)
+    .then(connector.fetchCards)
+    .then(connector.getSectionsUrls)
+    .then(sections => {
+      return connector
+        .fetchAttestationMutuelle(sections.mutuelle, fields)
+        .then(() => connector.fetchReimbursements(sections.reimbursements));
+    })
+    .then(entries =>
+      saveBills(entries, fields.folderPath, {
+        timeout: Date.now() + 60 * 1000,
+        identifiers: "MGEN"
+      })
+    );
 }
 
-connector.logIn = function (fields) {
-  log('info', 'Logging in')
+connector.logIn = function(fields) {
+  log("info", "Logging in");
   return request({
-    url: 'https://www.mgen.fr/login-adherent/',
-    method: 'POST',
+    url: "https://www.mgen.fr/login-adherent/",
+    method: "POST",
     formData: {
-      typeConnexion: 'adherent',
+      typeConnexion: "adherent",
       user: fields.login,
       pass: [fields.password],
-      logintype: 'login',
-      redirect_url: '/mon-espace-perso/'
+      logintype: "login",
+      redirect_url: "/mon-espace-perso/"
     },
     resolveWithFullResponse: true
-  })
-  .then(response => {
-    if (response.request.uri.pathname === '/services-indisponibles/') throw new Error(errors.VENDOR_DOWN)
+  }).then(response => {
+    if (response.request.uri.pathname === "/services-indisponibles/")
+      throw new Error(errors.VENDOR_DOWN);
 
-    const $ = response.body
+    const $ = response.body;
 
-    if ($('.tx-felogin-pi1').length > 0) {
-      log('error', $('.tx-felogin-pi1 .alert-danger').text().trim())
-      throw new Error(errors.LOGIN_FAILED)
+    if ($(".tx-felogin-pi1").length > 0) {
+      log(
+        "error",
+        $(".tx-felogin-pi1 .alert-danger")
+          .text()
+          .trim()
+      );
+      throw new Error(errors.LOGIN_FAILED);
     }
 
-    return $
-  })
-}
+    return $;
+  });
+};
 
-connector.fetchCards = function () {
+connector.fetchCards = function() {
   // first fetches profilage data or else the next request won't work
   return request({
     url: `${baseUrl}/mon-espace-perso/?type=30303&_=${new Date().getTime()}`,
     json: true
-  })
-  .then(() => request('https://www.mgen.fr/mon-espace-perso/?type=30304&_=' + new Date().getTime()))
-}
+  }).then(() =>
+    request(
+      "https://www.mgen.fr/mon-espace-perso/?type=30304&_=" +
+        new Date().getTime()
+    )
+  );
+};
 
-connector.getSectionsUrls = function ($) {
-  log('info', 'Getting sections urls')
-  const result = {}
-  const $linkMutuelle = $("a[href*='attestation-de-droit-regime-complementaire']")
+connector.getSectionsUrls = function($) {
+  log("info", "Getting sections urls");
+  const result = {};
+  const $linkMutuelle = $(
+    "a[href*='attestation-de-droit-regime-complementaire']"
+  );
   if ($linkMutuelle.length) {
-    const matriceMutuelle = $linkMutuelle.closest('[data-tag-metier-attestations-demarches]').attr('data-matrice')
-    const urlMutuelle = unescape($linkMutuelle.attr('href'))
-    result.mutuelle = `${baseUrl}${urlMutuelle}&codeMatrice=${matriceMutuelle}`
+    const matriceMutuelle = $linkMutuelle
+      .closest("[data-tag-metier-attestations-demarches]")
+      .attr("data-matrice");
+    const urlMutuelle = unescape($linkMutuelle.attr("href"));
+    result.mutuelle = `${baseUrl}${urlMutuelle}&codeMatrice=${matriceMutuelle}`;
   } else {
-    result.mutuelle = false
+    result.mutuelle = false;
   }
 
-  const $linkReimbursements = $("a[href*='mes-remboursements']")
-  const matriceReimbursements = $linkReimbursements.closest('[data-tag-metier-remboursements]').attr('data-matrice')
-  const urlReimbursements = unescape($linkReimbursements.attr('href'))
-  result.reimbursements = `${baseUrl}${urlReimbursements}&codeMatrice=${matriceReimbursements}`
+  const $linkReimbursements = $("a[href*='mes-remboursements']");
+  const matriceReimbursements = $linkReimbursements
+    .closest("[data-tag-metier-remboursements]")
+    .attr("data-matrice");
+  const urlReimbursements = unescape($linkReimbursements.attr("href"));
+  result.reimbursements = `${baseUrl}${urlReimbursements}&codeMatrice=${matriceReimbursements}`;
 
-  log('debug', result, 'SectionsUrls')
+  log("debug", result, "SectionsUrls");
 
-  return result
-}
+  return result;
+};
 
-function serializedFormToFormData (data) {
+function serializedFormToFormData(data) {
   return data.reduce((memo, item) => {
-    memo[item.name] = item.value
-    return memo
-  }, {})
+    memo[item.name] = item.value;
+    return memo;
+  }, {});
 }
 
-connector.fetchReimbursements = function (url, fields) {
-  log('info', 'Fetching reimbursements')
-  return request(url)
-  .then($ => {
+connector.fetchReimbursements = function(url, fields) {
+  log("info", "Fetching reimbursements");
+  return request(url).then($ => {
     // table parsing
-    let entries = Array.from($('#tableDernierRemboursement tbody tr')).map(tr => {
-      const tds = Array.from($(tr).find('td')).map(td => {
-        return $(td).text().trim()
-      })
+    let entries = Array.from($("#tableDernierRemboursement tbody tr")).map(
+      tr => {
+        const tds = Array.from($(tr).find("td")).map(td => {
+          return $(td)
+            .text()
+            .trim();
+        });
 
-      const date = moment(tds[4], 'DD/MM/YYYY')
-      const entry = {
-        type: 'health',
-        vendor: 'MGEN',
-        isRefund: true,
-        indexLine: tds[0], // removed later
-        originalDate: moment(tds[1], 'DD/MM/YYYY').toDate(),
-        beneficiary: tds[2],
-        amount: convertAmount(tds[3]),
-        date: date.toDate()
+        const date = moment(tds[4], "DD/MM/YYYY");
+        const entry = {
+          type: "health",
+          vendor: "MGEN",
+          isRefund: true,
+          indexLine: tds[0], // removed later
+          originalDate: moment(tds[1], "DD/MM/YYYY").toDate(),
+          beneficiary: tds[2],
+          amount: convertAmount(tds[3]),
+          date: date.toDate()
+        };
+
+        const $pdfLink = $(tr).find(".pdf_download");
+        if ($pdfLink.length) {
+          entry.fileurl = baseUrl + unescape($pdfLink.attr("href"));
+          entry.filename = `${date.format("YYYYMM")}_mgen.pdf`;
+        }
+
+        return entry;
       }
-
-      const $pdfLink = $(tr).find('.pdf_download')
-      if ($pdfLink.length) {
-        entry.fileurl = (baseUrl + unescape($pdfLink.attr('href')))
-        entry.filename = `${date.format('YYYYMM')}_mgen.pdf`
-      }
-
-      return entry
-    })
+    );
 
     // try to get details for the first line
-    const $formDetails = $('#formDetailsRemboursement')
-    const formData = serializedFormToFormData($formDetails.serializeArray())
-    formData['tx_mtechremboursement_mtechremboursementsante[rowIdOrder]'] = entries.map(entry => entry.indexLine).join(',')
-    const action = unescape($formDetails.attr('action'))
+    const $formDetails = $("#formDetailsRemboursement");
+    const formData = serializedFormToFormData($formDetails.serializeArray());
+    formData[
+      "tx_mtechremboursement_mtechremboursementsante[rowIdOrder]"
+    ] = entries.map(entry => entry.indexLine).join(",");
+    const action = unescape($formDetails.attr("action"));
 
-    return bluebird.map(entries, entry => connector.fetchDetailsReimbursement(entry, action, formData), {concurrency: 5})
-  })
-}
+    return bluebird.map(
+      entries,
+      entry => connector.fetchDetailsReimbursement(entry, action, formData),
+      { concurrency: 5 }
+    );
+  });
+};
 
 // convert a string amount to a float
-function convertAmount (amount) {
-  return parseFloat(amount.trim().replace(' €', '').replace(',', '.'))
+function convertAmount(amount) {
+  return parseFloat(
+    amount
+      .trim()
+      .replace(" €", "")
+      .replace(",", ".")
+  );
 }
 
-connector.fetchDetailsReimbursement = function (entry, action, formData) {
-  log('info', `Fetching details for line ${entry.indexLine}`)
-  formData['tx_mtechremboursement_mtechremboursementsante[indexLigne]'] = entry.indexLine
+connector.fetchDetailsReimbursement = function(entry, action, formData) {
+  log("info", `Fetching details for line ${entry.indexLine}`);
+  formData["tx_mtechremboursement_mtechremboursementsante[indexLigne]"] =
+    entry.indexLine;
   return request({
     url: baseUrl + action,
-    method: 'POST',
+    method: "POST",
     formData
-  })
-  .then($ => {
-    const $tables = $('#ajax-details-remboursements table')
-    const $tableSummary = $tables.eq(0)
-    const $tableDetails = $tables.eq(1)
-    const data = Array.from($tableSummary.find('tr')).reduce((memo, tr) => {
-      const $tds = $(tr).find('td')
-      memo[$tds.eq(0).text().trim()] = $tds.eq(1).text().trim()
-      return memo
-    }, {})
+  }).then($ => {
+    const $tables = $("#ajax-details-remboursements table");
+    const $tableSummary = $tables.eq(0);
+    const $tableDetails = $tables.eq(1);
+    const data = Array.from($tableSummary.find("tr")).reduce((memo, tr) => {
+      const $tds = $(tr).find("td");
+      memo[
+        $tds
+          .eq(0)
+          .text()
+          .trim()
+      ] = $tds
+        .eq(1)
+        .text()
+        .trim();
+      return memo;
+    }, {});
 
-    entry.originalAmount = convertAmount(data['Montant des soins'])
+    entry.originalAmount = convertAmount(data["Montant des soins"]);
 
     // not used anymore
-    delete entry.indexLine
+    delete entry.indexLine;
 
-    const details = Array.from($tableDetails.find('tbody tr')).map(tr => {
-      const $tds = $(tr).find('td')
+    const details = Array.from($tableDetails.find("tbody tr")).map(tr => {
+      const $tds = $(tr).find("td");
       return {
-        designation: $tds.eq(0).text().trim(),
+        designation: $tds
+          .eq(0)
+          .text()
+          .trim(),
         reimbursementSS: convertAmount($tds.eq(2).text()),
         reimbursementMGEN: convertAmount($tds.eq(3).text())
-      }
-    })
+      };
+    });
 
-    if (data['Remboursement à l\'assuré'] === '0,00 €') {
-      entry.isThirdPartyPayer = true
+    if (data["Remboursement à l'assuré"] === "0,00 €") {
+      entry.isThirdPartyPayer = true;
     }
 
     // get data from the details table
-    const sums = details.reduce((memo, detail) => {
-      memo.designation.push(detail.designation)
-      memo.reimbursementSS += detail.reimbursementSS
-      memo.reimbursementMGEN += detail.reimbursementMGEN
-      return memo
-    }, {designation: [], reimbursementSS: 0, reimbursementMGEN: 0})
-    entry.amount = round(sums.reimbursementMGEN)
+    const sums = details.reduce(
+      (memo, detail) => {
+        memo.designation.push(detail.designation);
+        memo.reimbursementSS += detail.reimbursementSS;
+        memo.reimbursementMGEN += detail.reimbursementMGEN;
+        return memo;
+      },
+      { designation: [], reimbursementSS: 0, reimbursementMGEN: 0 }
+    );
+    entry.amount = round(sums.reimbursementMGEN);
     // remove duplicates
-    sums.designation = Array.from(new Set(sums.designation))
-    entry.subtype = sums.designation.join(', ')
-    entry.socialSecurityRefund = round(sums.reimbursementSS)
+    sums.designation = Array.from(new Set(sums.designation));
+    entry.subtype = sums.designation.join(", ");
+    entry.socialSecurityRefund = round(sums.reimbursementSS);
 
-    return entry
-  })
+    return entry;
+  });
+};
+
+function round(floatValue) {
+  return Math.round(floatValue * 100) / 100;
 }
 
-function round (floatValue) {
-  return Math.round(floatValue * 100) / 100
-}
-
-connector.fetchAttestationMutuelle = function (url, fields) {
-  log('info', 'Fetching mutuelle attestation')
+connector.fetchAttestationMutuelle = function(url, fields) {
+  log("info", "Fetching mutuelle attestation");
 
   if (url === false) {
-    log('info', 'No mutuelle attestation to fetch')
-    return Promise.resolve()
+    log("info", "No mutuelle attestation to fetch");
+    return Promise.resolve();
   }
 
   return request(url)
-  .then($ => {
-    const script = $('#panelAttestationDroitRO').prev('script').html()
-    const urls = script.trim().split('\n').map(line => unescape(line.match(/'(.*)'/)[1]))
-    log('debug', urls, 'urls')
+    .then($ => {
+      const script = $("#panelAttestationDroitRO")
+        .prev("script")
+        .html();
+      const urls = script
+        .trim()
+        .split("\n")
+        .map(line => unescape(line.match(/'(.*)'/)[1]));
+      log("debug", urls, "urls");
 
-    return request({
-      method: 'POST',
-      url: baseUrl + urls[0],
-      formData: {
-        identifiantPersonne: '0',
-        modeEnvoi: 'telecharger'
-      }
+      return request({
+        method: "POST",
+        url: baseUrl + urls[0],
+        formData: {
+          identifiantPersonne: "0",
+          modeEnvoi: "telecharger"
+        }
+      }).then(() => ({
+        fileurl: baseUrl + urls[1],
+        filename: "Attestation_mutuelle.pdf"
+      }));
     })
-    .then(() => ({
-      fileurl: baseUrl + urls[1],
-      filename: 'Attestation_mutuelle.pdf'
-    }))
-  })
-  .then(entry => saveFiles([entry], fields))
-}
+    .then(entry => saveFiles([entry], fields));
+};
 
-module.exports = connector
+module.exports = connector;
