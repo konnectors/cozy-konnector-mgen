@@ -10,8 +10,7 @@ const {
   log,
   saveFiles,
   saveBills,
-  errors,
-  retry
+  errors
 } = require("cozy-konnector-libs");
 const moment = require("moment");
 const bluebird = require("bluebird");
@@ -126,7 +125,7 @@ function serializedFormToFormData(data) {
   }, {});
 }
 
-connector.fetchReimbursements = function(url, fields) {
+connector.fetchReimbursements = function(url) {
   log("info", "Fetching reimbursements");
   return request(url).then($ => {
     // table parsing
