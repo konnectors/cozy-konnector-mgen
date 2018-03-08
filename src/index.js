@@ -4,6 +4,10 @@ process.env.SENTRY_DSN =
   process.env.SENTRY_DSN ||
   "https://3da293a66f31422fb395c917a7736405:752fb919797c4082a8a330a452dc6449@sentry.cozycloud.cc/15";
 
+const sumBy = require('lodash/sumBy')
+const groupBy = require('lodash/groupBy')
+const round = require('lodash/round')
+const querystring = require('querystring')
 const {
   BaseKonnector,
   requestFactory,
@@ -125,6 +129,15 @@ function serializedFormToFormData(data) {
   }, {});
 }
 
+const addGroupAmounts = entries => {
+  const groups = groupBy(entries, 'fileurl')
+  Object.keys(groups).forEach(k => {
+    const groupEntries = groups[k]
+    const groupAmount = round(sumBy(groupEntries, 'amount'), 2)
+    groupEntries.forEach(entry => entry.groupAmount = groupAmount)
+  })
+}
+
 connector.fetchReimbursements = function(url) {
   log("info", "Fetching reimbursements");
   return request(url).then($ => {
@@ -171,7 +184,10 @@ connector.fetchReimbursements = function(url) {
       entries,
       entry => connector.fetchDetailsReimbursement(entry, action, formData),
       { concurrency: 5 }
-    );
+    ).then(entries => {
+      addGroupAmounts(entries)
+      return entries
+    });
   });
 };
 
@@ -252,10 +268,6 @@ connector.fetchDetailsReimbursement = function(entry, action, formData) {
     return entry;
   });
 };
-
-function round(floatValue) {
-  return Math.round(floatValue * 100) / 100;
-}
 
 connector.fetchAttestationMutuelle = function(url, fields) {
   log("info", "Fetching mutuelle attestation");
