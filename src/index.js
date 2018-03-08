@@ -151,7 +151,8 @@ connector.fetchReimbursements = function(url) {
         const $pdfLink = $(tr).find(".pdf_download");
         if ($pdfLink.length) {
           entry.fileurl = baseUrl + unescape($pdfLink.attr("href"));
-          entry.filename = `${date.format("YYYYMM")}_mgen.pdf`;
+          const parsedUrl = querystring.decode(entry.fileurl)
+          entry.filename = `${moment(parsedUrl.dateReleve).format("YYYY-MM-DD")}_mgen.pdf`;
         }
 
         return entry;
