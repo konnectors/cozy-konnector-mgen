@@ -145,7 +145,6 @@ connector.fetchReimbursements = function(url) {
           indexLine: tds[0], // removed later
           originalDate: moment(tds[1], "DD/MM/YYYY").toDate(),
           beneficiary: tds[2],
-          amount: convertAmount(tds[3]),
           date: date.toDate()
         };
 
@@ -242,11 +241,12 @@ connector.fetchDetailsReimbursement = function(entry, action, formData) {
       },
       { designation: [], reimbursementSS: 0, reimbursementMGEN: 0 }
     );
-    entry.amount = round(sums.reimbursementMGEN);
+    entry.amount = convertAmount(data["Remboursement à l'assuré"]);
     // remove duplicates
     sums.designation = Array.from(new Set(sums.designation));
     entry.subtype = sums.designation.join(", ");
     entry.socialSecurityRefund = round(sums.reimbursementSS);
+    entry.thirdPartyRefund = round(sums.reimbursementMGEN);
 
     return entry;
   });
