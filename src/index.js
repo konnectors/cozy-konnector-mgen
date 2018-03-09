@@ -14,10 +14,13 @@ const {
   log,
   saveFiles,
   saveBills,
-  errors
+  errors,
+  cozyClient
 } = require("cozy-konnector-libs");
 const moment = require("moment");
 const bluebird = require("bluebird");
+const rq = require('request')
+const removeOldFiles = require('./removeOldFiles')
 
 let request = requestFactory({
   cheerio: true,
@@ -31,8 +34,8 @@ const baseUrl = "https://www.mgen.fr";
 const connector = new BaseKonnector(start);
 
 function start(fields) {
-  return connector
-    .logIn(fields)
+  return removeOldFiles(fields)
+    .then(() => connector.logIn(fields))
     .then(connector.fetchCards)
     .then(connector.getSectionsUrls)
     .then(sections => {
