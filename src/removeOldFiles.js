@@ -9,9 +9,14 @@ const isOldFile = file => {
 const lsDir = async folder => {
   const limit = 100000
   const folderId = folder._id
-  const data = await cozyClient.fetchJSON('GET', `/files/${folderId}?page[limit]=${limit}`, null, {
-    processJSONAPI: false
-  })
+  const data = await cozyClient.fetchJSON(
+    'GET',
+    `/files/${folderId}?page[limit]=${limit}`,
+    null,
+    {
+      processJSONAPI: false
+    }
+  )
   return data.included
 }
 
@@ -20,10 +25,14 @@ const removeOldFiles = async fields => {
   const files = await lsDir(folder)
   const oldMgenFiles = files.filter(isOldFile)
   log('info', `Found ${oldMgenFiles.length} old MGEN files`)
-  return bluebird.map(oldMgenFiles, file => {
-    log('info', `Deleting file ${file.attributes.name}`)
-    return cozyClient.files.destroyById(file.id)
-  }, { concurrency: 5 })
+  return bluebird.map(
+    oldMgenFiles,
+    file => {
+      log('info', `Deleting file ${file.attributes.name}`)
+      return cozyClient.files.destroyById(file.id)
+    },
+    { concurrency: 5 }
+  )
 }
 
 module.exports = removeOldFiles

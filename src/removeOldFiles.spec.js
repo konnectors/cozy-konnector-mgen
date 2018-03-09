@@ -17,14 +17,16 @@ const asyncResolve = data => {
 describe('remove old files', () => {
   beforeEach(() => {
     client.files.statByPath.mockReturnValue(asyncResolve({ _id: 'folderId' }))
-    client.fetchJSON.mockReturnValue(asyncResolve({
-      included: [
-        { id: 1, attributes: { name: 'Hello.pdf' }},
-        { id: 2, attributes: { name: '201215_mgen.pdf' }},
-        { id: 3, attributes: { name: '201217_mgen.pdf' }},
-        { id: 4, attributes: { name: '2012-12-17-mgen.pdf' }},
-      ]
-    }))
+    client.fetchJSON.mockReturnValue(
+      asyncResolve({
+        included: [
+          { id: 1, attributes: { name: 'Hello.pdf' } },
+          { id: 2, attributes: { name: '201215_mgen.pdf' } },
+          { id: 3, attributes: { name: '201217_mgen.pdf' } },
+          { id: 4, attributes: { name: '2012-12-17-mgen.pdf' } }
+        ]
+      })
+    )
   })
   it('should be able to recognize old files', async () => {
     await removeOldFiles({ folderPath: '/' })
