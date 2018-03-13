@@ -41,7 +41,9 @@
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-mgen.git"
   },
   "dependencies": {
-    "cozy-konnector-libs": "3.3.0"
+    "babel-eslint": "^8.2.2",
+    "cozy-konnector-libs": "3.3.0",
+    "eslint-config-cozy-app": "^0.4.0"
   },
   "devDependencies": {
     "copy-webpack-plugin": "4.5.1",
