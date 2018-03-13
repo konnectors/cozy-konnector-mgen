@@ -32,8 +32,8 @@ const baseUrl = 'https://www.mgen.fr'
 const connector = new BaseKonnector(start)
 
 function start(fields) {
-  return removeOldFiles(fields)
-    .then(() => connector.logIn(fields))
+  return connector
+    .logIn(fields)
     .then(connector.fetchCards)
     .then(connector.getSectionsUrls)
     .then(sections => {
@@ -41,12 +41,17 @@ function start(fields) {
         .fetchAttestationMutuelle(sections.mutuelle, fields)
         .then(() => connector.fetchReimbursements(sections.reimbursements))
     })
-    .then(entries =>
+    .then(entries => {
       saveBills(entries, fields.folderPath, {
         timeout: Date.now() + 60 * 1000,
         identifiers: 'MGEN'
       })
-    )
+      return entries
+    })
+    .then(async entries => {
+      await removeOldFiles(fields, entries)
+      return entries
+    })
 }
 
 connector.logIn = function(fields) {
