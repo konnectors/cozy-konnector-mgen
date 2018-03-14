@@ -49,7 +49,9 @@ function start(fields) {
       return entries
     })
     .then(async entries => {
-      await removeOldFiles(fields, entries)
+      if (process.env.NODE_ENV !== 'standalone') {
+        await removeOldFiles(fields, entries)
+      }
       return entries
     })
 }
