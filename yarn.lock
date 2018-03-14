@@ -1855,18 +1855,18 @@ cozy-client-js@^0.7.0:
     pouchdb-adapter-cordova-sqlite "https://github.com/SnceGroup/pouchdb-adapter-cordova-sqlite.git#f3ee23009b70209c611435d57491aa77fb88802a"
     pouchdb-find "0.10.4"
 
-cozy-jobs-cli@^1.0.4:
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/cozy-jobs-cli/-/cozy-jobs-cli-1.0.4.tgz#6af8d90a2cf9b0974567c534faf1268e002a2720"
+cozy-jobs-cli@1.0.5:
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/cozy-jobs-cli/-/cozy-jobs-cli-1.0.5.tgz#22fe4db4abd42c00e1bf895a1d0e92f5e8a131a0"
   dependencies:
     cheerio "^1.0.0-rc.2"
     commander "^2.12.2"
     cozy-logger "^1.0.3"
     opn "^5.1.0"
 
-cozy-konnector-libs@3.7.2:
-  version "3.7.2"
-  resolved "https://registry.yarnpkg.com/cozy-konnector-libs/-/cozy-konnector-libs-3.7.2.tgz#1079a73a07db8cda16edf76f1fa486abc55d4386"
+cozy-konnector-libs@3.7.3:
+  version "3.7.3"
+  resolved "https://registry.yarnpkg.com/cozy-konnector-libs/-/cozy-konnector-libs-3.7.3.tgz#afe2a3f378a502a1a8c34804e2cffead59c38d4d"
   dependencies:
     babel-plugin-transform-object-rest-spread "^6.26.0"
     babel-preset-env "^1.6.0"
