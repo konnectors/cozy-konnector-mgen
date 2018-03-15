@@ -17,13 +17,16 @@
       "node": true
     },
     "extends": [
-      "eslint:recommended",
-      "prettier"
+      "eslint-config-cozy-app"
     ]
   },
   "eslintIgnore": [
     "build"
   ],
+  "prettier": {
+    "semi": false,
+    "singleQuote": true
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "cozy-konnector-dev src/index.js",
@@ -33,13 +36,17 @@
     "standalone:replay": "REPLAY=replay cozy-konnector-standalone src/index.js",
     "build": "webpack",
     "format": "prettier --write '**/*.{js,json}'",
-    "precommit": "eslint .",
+    "precommit": "yarn lint",
     "lint": "eslint .",
+    "test": "jest",
     "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-mgen.git",
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-mgen.git"
   },
   "dependencies": {
-    "cozy-konnector-libs": "3.3.0"
+    "babel-eslint": "^8.2.2",
+    "cozy-jobs-cli": "1.0.5",
+    "cozy-konnector-libs": "3.7.3",
+    "eslint-config-cozy-app": "^0.4.0"
   },
   "devDependencies": {
     "copy-webpack-plugin": "4.5.1",
