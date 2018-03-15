@@ -38,6 +38,7 @@
     "format": "prettier --write '**/*.{js,json}'",
     "precommit": "yarn lint",
     "lint": "eslint .",
+    "test": "jest",
     "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-mgen.git",
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-mgen.git"
   },
