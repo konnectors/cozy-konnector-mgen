@@ -23,10 +23,6 @@
   "eslintIgnore": [
     "build"
   ],
-  "prettier": {
-    "semi": false,
-    "singleQuote": true
-  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "cozy-konnector-dev src/index.js",
@@ -35,9 +31,8 @@
     "standalone:record": "REPLAY=record cozy-konnector-standalone src/index.js",
     "standalone:replay": "REPLAY=replay cozy-konnector-standalone src/index.js",
     "build": "webpack",
-    "format": "prettier --write '**/*.{js,json}'",
     "precommit": "yarn lint",
-    "lint": "eslint .",
+    "lint": "eslint --fix .",
     "test": "jest",
     "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-mgen.git",
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-mgen.git"
@@ -46,16 +41,13 @@
     "babel-eslint": "^8.2.2",
     "cozy-jobs-cli": "1.0.6",
     "cozy-konnector-libs": "3.7.4",
-    "eslint-config-cozy-app": "^0.4.0"
+    "eslint-config-cozy-app": "^0.5.0"
   },
   "devDependencies": {
     "copy-webpack-plugin": "4.5.1",
     "eslint": "4.19.1",
-    "eslint-config-prettier": "2.9.0",
     "git-directory-deploy": "1.5.1",
     "husky": "0.14.3",
-    "prettier": "1.11.1",
-    "pretty-quick": "1.4.1",
     "webpack": "4.2.0",
     "webpack-cli": "2.0.13"
   }

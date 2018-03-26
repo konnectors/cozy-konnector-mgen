@@ -1,6 +1,6 @@
 const { cozyClient, log } = require('cozy-konnector-libs')
 
-const fetchAll = async (doctype, queryOptions = '') => {
+const fetchAll = async doctype => {
   try {
     const result = await cozyClient.fetchJSON(
       'GET',
