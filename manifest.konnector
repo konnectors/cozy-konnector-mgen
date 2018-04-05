@@ -1,44 +1,44 @@
 {
   "version": "1.0.0",
-  "name": "MGEN konnector",
-  "type": "node",
-  "slug": "mgen",
-  "description": "MGEN konnector for Cozy",
-  "source": "git@github.com:cozy/cozy-konnector-mgen.git",
+  "name": "MGEN",
+  "slug": "mgen-collect",
+  "type": "konnector",
+  "language": "node",
+  "icon": "icon.svg",
+  "source": "git@github.com:konnectors/cozy-konnector-mgen.git",
+  "editor": "Cozy",
+  "vendorLink": "https://www.mgen.fr",
+  "developer": {
+    "name": "cozy",
+    "url": "https://cozy.io"
+  },
+  "categories": ["insurance"],
+  "screenshots": ["screenshots/screenshot.png"],
+  "langs": ["fr"],
+  "dataType": [
+    "bill",
+    "certificate"
+  ],
   "fields": {
-    "save_folder": {
-      "doctype": "io.cozy.files",
-      "type": "folder"
+    "login": {
+      "type": "text"
     },
-    "account": {
-      "doctype": "io.cozy.accounts",
-      "account_type": "mgen",
-      "accountFormat": "login,password"
+    "password": {
+      "type": "password"
+    },
+    "advancedFields": {
+      "folderPath": {
+        "advanced": true,
+        "isRequired": false
+      }
     }
   },
   "locales": {
     "fr": {
-      "description": "Récupère toutes vos factures MGEN",
-      "permissions": {
-        "bills": {
-          "description": "Utilisé pour sauvegarder les données de facturation"
-        },
-        "files": {
-          "description": "Utilisé pour sauvegarder les factures"
-        }
-      }
+      "short_description": "Récupère toutes vos factures MGEN"
     },
     "en": {
-      "description": "Retrieves all your MGEN invoices",
-      "permissions": {
-        "bills": {
-          "description": "Used to save billing data"
-        },
-        "files": {
-          "description": "Used to save invoices"
-        }
-      }
-    }
+      "short_description": "Retrieves all your MGEN invoices"
   },
   "permissions": {
     "bank operations": {
@@ -58,9 +58,5 @@
       "type": "io.cozy.accounts",
       "verbs": ["GET"]
     }
-  },
-  "developer": {
-    "name": "cozy",
-    "url": "https://cozy.io"
   }
 }
