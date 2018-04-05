@@ -41,8 +41,8 @@ function start(fields) {
         .fetchAttestationMutuelle(sections.mutuelle, fields)
         .then(() => connector.fetchReimbursements(sections.reimbursements))
     })
-    .then(entries => {
-      saveBills(entries, fields.folderPath, {
+    .then(async entries => {
+      await saveBills(entries, fields.folderPath, {
         timeout: Date.now() + 60 * 1000,
         identifiers: 'MGEN'
       })
