@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "babel-eslint": "^8.2.2",
-    "cozy-jobs-cli": "1.0.8",
+    "cozy-jobs-cli": "1.0.9",
     "cozy-konnector-libs": "3.8.1",
     "eslint-config-cozy-app": "^0.5.0"
   },
