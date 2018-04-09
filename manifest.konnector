@@ -39,6 +39,7 @@
     },
     "en": {
       "short_description": "Retrieves all your MGEN invoices"
+    }
   },
   "permissions": {
     "bank operations": {

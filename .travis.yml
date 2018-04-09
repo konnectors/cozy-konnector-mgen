@@ -18,12 +18,12 @@ deploy:
   - provider: script
     repo: konnectors/cozy-konnector-mgen
     skip-cleanup: true
-    script: yarn deploy && BUILD_COMMIT=$(git rev-parse build) yarn cozyPublish
+    script: DEPLOY_BRANCH=build && yarn deploy && yarn cozyPublish
     on:
       branch: master
   - provider: script
     repo: konnectors/cozy-konnector-mgen
     skip-cleanup: true
-    script: DEPLOY_BRANCH=latest yarn deploy && BUILD_COMMIT=$(git rev-parse latest) yarn cozyPublish
+    script: DEPLOY_BRANCH=latest && yarn deploy && yarn cozyPublish
     on:
       branch: prod
