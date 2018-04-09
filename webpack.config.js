@@ -13,7 +13,7 @@ module.exports = {
       { from: 'manifest.konnector' },
       { from: 'package.json' },
       { from: 'README.md' },
-      { from: "assets" },
+      { from: 'assets' },
       { from: 'LICENSE' }
     ])
   ]

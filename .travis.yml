@@ -5,6 +5,8 @@ env:
   global:
     # kosssi GITHUB_TOKEN
     - secure: "or4rMSxpTJcgefXVC6xzziLJeceTaZL6dCk3TSnDQvrW7WB50G2jUrniCLCNmAXdub9KY/CidsT+nvxw6SQAl7ey6cEFGwVs761vwNsdRypLmoMUawGsEjvVqh4u9BSwz8xCm5KzG9JcwCKkRd3GIQTYl20bHeRG1WlCr1wi4GZAFe1bSp80cy4y3HaQTeSIQTFxcZTNijeT7xWT2j4ZeiNIJ4eqWoQogzlWG0OzPLZYnmUzrhtxdZX9ceXKsT673zCh1L93Mt+jpRm1ZwPPIKHpKrNsW5Xr1t7eW+UULjzmDC+AYmItV37tKMFiMjeDPiFZRTBN93kzz744MOsh58ue0OzCRnrDVDcoEtXCPf4EKad6IyP86IvFySPpgi4gAx/Tr94kfKmDje6jcZcfLqV8xLm1gxPoxOOH7OOD4Y16tdPqCdp3vZx1vq6shkM2QbAHxd9ZnAv5Ey3szeRcrvhlJ0CJMM74bOjPHGT17jAkm6gLCo/RJN2TQvDAniWevKG+m+NCL1gnMsrfH0NuQi6aZNfBIlrzUsRQJEcypLqf82X3FrXla9r5KlVU+85Iw8frv0ViNw2a3I0m47IYODycld83AdSeiX4x0gurS+Cuqq9Nvm1qspoYKPG0E+u26K9mJRsEtuXFwzufaXPnq1oVo5N9HS6ii1OCtKo1WkQ="
+    # REGISTRY_TOKEN
+    - secure: NIoV/wwWdXL4u98MKobjVjRvpTeI8iJz+Px/5gV2lFABlz0hd7++AHZzPtdSQ6iqtqXvkbFJFf9iEFb5jI8aYBFqwQ4KRXYyBrTrGvhJOdoU216rPbdbWN6DenKzXW2zFDbdQBHI6lvFMdocxqc9qN8VvpGwL2Kk+i2YYQMlJE3E/3VpKkuuHwqqgZuJtUadxiYpujckhZgOYmt2QhpZzpR2pVXR/GymhH/CDe1QNTYhAXHeZHmRjvFqt+ZJISeESWtd/2lF/tLVXKPllE0AhxkVBuUYlasyljVv/8bqAtl/ik03vzTTG451YmVgBeIJzRsu/2RWudrtP2CqRvCwvLEpf8Uz21HMmyZw8OR8TFJVYQMgbWww8rB1YGK+j2oD/C79VylOMKmLfiDEGC9oXShbqGAt1eFKIlpYxpNCTg+f7W7WfR/LkV2MfeY9xT/rwcucxTCARr/My9eFtCmh0qddtqu5syyHEZI/dFtJSMPZWLw8UYPiM51YbJNKtvu1xc8mU/zp0vKxJ+IelbFmt5owXZwdEcHsqtLyJiqaDvSYJH/029LeCyb3HKDD7FM10az/5rENvjjSKqR7Waui8ut+/9S5dI2dtBnObyADBHsr2cUFm9MUj4HSOart/YGt86EiIUcD1kDnH6FilCeBu0NsQhSMEZy3XMs37HiA2s0=
 cache:
   yarn: true
   directories:
@@ -13,19 +15,15 @@ script:
   - yarn build
   - yarn lint
 deploy:
-  - provider: pages
+  - provider: script
     repo: konnectors/cozy-konnector-mgen
     skip-cleanup: true
-    github-token: $GITHUB_TOKEN
-    target-branch: build
-    local-dir: ./build
+    script: yarn deploy && BUILD_COMMIT=$(git rev-parse build) yarn cozyPublish
     on:
       branch: master
-  - provider: pages
+  - provider: script
     repo: konnectors/cozy-konnector-mgen
     skip-cleanup: true
-    github-token: $GITHUB_TOKEN
-    target-branch: latest
-    local-dir: ./build
+    script: DEPLOY_BRANCH=latest yarn deploy && BUILD_COMMIT=$(git rev-parse latest) yarn cozyPublish
     on:
       branch: prod
