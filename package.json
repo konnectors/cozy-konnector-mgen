@@ -34,8 +34,8 @@
     "precommit": "yarn lint",
     "lint": "eslint --fix .",
     "test": "jest",
-    "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-mgen.git",
-    "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-mgen.git"
+    "deploy": "git-directory-deploy --directory build/ --branch ${DEPLOY_BRANCH:-build} --repo=${DEPLOY_REPOSITORY:-https://$GITHUB_TOKEN@github.com/konnectors/cozy-konnector-mgen.git}",
+    "cozyPublish": "cozy-app-publish --token $REGISTRY_TOKEN --build-commit $(git rev-parse ${DEPLOY_BRANCH:-build})"
   },
   "dependencies": {
     "babel-eslint": "^8.2.2",
@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "copy-webpack-plugin": "4.5.1",
+    "cozy-app-publish": "0.3.4",
     "eslint": "4.19.1",
     "git-directory-deploy": "1.5.1",
     "husky": "0.14.3",
