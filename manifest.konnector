@@ -1,21 +1,21 @@
 {
   "version": "1.0.0",
   "name": "MGEN",
-  "slug": "mgen-collect",
+  "slug": "mgen",
   "type": "konnector",
   "language": "node",
   "icon": "icon.svg",
   "source": "git@github.com:konnectors/cozy-konnector-mgen.git",
   "editor": "Cozy",
-  "vendorLink": "https://www.mgen.fr",
+  "vendor_link": "https://www.mgen.fr",
   "developer": {
     "name": "cozy",
     "url": "https://cozy.io"
   },
   "categories": ["insurance"],
-  "screenshots": ["screenshots/screenshot.png"],
+  "screenshots": [],
   "langs": ["fr"],
-  "dataType": [
+  "data_types": [
     "bill",
     "certificate"
   ],
