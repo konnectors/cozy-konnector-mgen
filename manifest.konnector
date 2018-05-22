@@ -1,24 +1,14 @@
 {
   "version": "1.0.3",
   "name": "MGEN",
-  "slug": "mgen",
   "type": "konnector",
   "language": "node",
   "icon": "mgen.svg",
+  "slug": "mgen",
   "source": "git@github.com:konnectors/cozy-konnector-mgen.git",
   "editor": "Cozy",
   "vendor_link": "https://www.mgen.fr",
-  "developer": {
-    "name": "Cozy Cloud",
-    "url": "https://cozy.io"
-  },
   "categories": ["insurance"],
-  "screenshots": [],
-  "langs": ["fr"],
-  "data_types": [
-    "bill",
-    "certificate"
-  ],
   "fields": {
     "login": {
       "type": "text"
@@ -33,14 +23,11 @@
       }
     }
   },
-  "locales": {
-    "fr": {
-      "short_description": "Récupère toutes vos factures MGEN"
-    },
-    "en": {
-      "short_description": "Retrieves all your MGEN invoices"
-    }
-  },
+  "data_types": [
+    "bill",
+    "certificate"
+  ],
+  "screenshots": [],
   "permissions": {
     "bank operations": {
       "description": "Required to link bills to bank operations",
@@ -59,5 +46,18 @@
       "type": "io.cozy.accounts",
       "verbs": ["GET"]
     }
-  }
+  },
+  "developer": {
+    "name": "Cozy Cloud",
+    "url": "https://cozy.io"
+  },
+  "langs": ["fr"],
+  "locales": {
+    "fr": {
+      "short_description": "Récupère toutes vos factures MGEN"
+    },
+    "en": {
+      "short_description": "Retrieves all your MGEN invoices"
+    }
+  },
 }
