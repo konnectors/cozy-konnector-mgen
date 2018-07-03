@@ -43,7 +43,6 @@ function start(fields) {
     })
     .then(async entries => {
       await saveBills(entries, fields.folderPath, {
-        timeout: Date.now() + 60 * 1000,
         identifiers: 'MGEN'
       })
       return entries
@@ -77,12 +76,13 @@ connector.logIn = function(fields) {
     const $ = response.body
 
     if ($('.tx-felogin-pi1').length > 0) {
-      log(
-        'error',
-        $('.tx-felogin-pi1 .alert-danger')
-          .text()
-          .trim()
-      )
+      const errorMessage = $('.tx-felogin-pi1 .alert-danger')
+        .text()
+        .trim()
+      log('error', errorMessage)
+      if (errorMessage.includes('le compte a été bloqué')) {
+        throw new Error('LOGIN_FAILED.TOO_MANY_ATTEMPTS')
+      }
       throw new Error(errors.LOGIN_FAILED)
     }
 
