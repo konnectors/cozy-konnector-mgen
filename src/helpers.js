@@ -33,7 +33,7 @@ const lsDir = async folder => {
       processJSONAPI: false
     }
   )
-  return data.included
+  return data.included || []
 }
 
 module.exports = {

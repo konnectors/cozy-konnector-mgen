@@ -41,7 +41,7 @@ const removeReferencesFromBills = async oldFileIds => {
     }
   }
   const updated = bills.map(update).filter(Boolean)
-  log('info', `Remove references in ${updated.length} doc(s)`)
+  log('info', `Remove references in ${updated && updated.length} doc(s)`)
   await updateAll('io.cozy.bills', updated)
 }
 
@@ -49,7 +49,7 @@ const removeOldFiles = async (fields, entries) => {
   log('info', `Removing old MGEN files`)
   const folder = await cozyClient.files.statByPath(fields.folderPath)
   const files = await lsDir(folder)
-  log('info', `Found ${files.length} files`)
+  log('info', `Found ${files && files.length} files`)
   const entriesByDate = sortBy(entries, byDate)
   const oldestEntry = first(entriesByDate)
 
@@ -62,7 +62,7 @@ const removeOldFiles = async (fields, entries) => {
     filters.push(youngerThanOldestEntry)
   }
   const oldMgenFiles = files.filter(composeFilters(filters))
-  log('info', `Found ${oldMgenFiles.length} old MGEN files`)
+  log('info', `Found ${oldMgenFiles && oldMgenFiles.length} old MGEN files`)
   const fileIds = oldMgenFiles.map(file => file.id)
   return Promise.all(
     bluebird.map(
