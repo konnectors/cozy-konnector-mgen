@@ -60,5 +60,6 @@
       "short_description": "Retrieves all your MGEN invoices"
     }
   },
+  "banksTransactionRegExp": "\\bmgen\\b",
   "manifest_version": "2"
 }
