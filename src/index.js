@@ -20,11 +20,13 @@ const moment = require('moment')
 const bluebird = require('bluebird')
 const removeOldFiles = require('./removeOldFiles')
 
-let request = requestFactory({
+let request = requestFactory()
+const j = request.jar()
+request = requestFactory({
   cheerio: true,
   json: false,
   // debug: true,
-  jar: true
+  jar: j
 })
 
 const baseUrl = 'https://www.mgen.fr'
@@ -177,6 +179,13 @@ connector.fetchReimbursements = function(url) {
           entry.filename = `${moment(parsedUrl.dateReleve).format(
             'YYYY-MM-DD'
           )}_mgen.pdf`
+          entry.requestOptions = {
+            jar: j,
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0'
+            }
+          }
         }
 
         return entry
@@ -307,6 +316,13 @@ connector.fetchAttestationMutuelle = function(url, fields) {
           modeEnvoi: 'telecharger'
         }
       }).then(() => ({
+        requestOptions: {
+          jar: j,
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0'
+          }
+        },
         fileurl: baseUrl + urls[1],
         filename: 'Attestation_mutuelle.pdf'
       }))
