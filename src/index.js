@@ -195,7 +195,8 @@ connector.fetchReimbursements = function(url) {
     // try to get details for the first line
     const $formDetails = $('#formDetailsRemboursement')
     const formData = serializedFormToFormData($formDetails.serializeArray())
-    const propName = 'tx_mtechremboursement_mtechremboursementsante[rowIdOrder]'
+    const propName =
+      'tx_mtechremboursementxmlhttp_mtechremboursementsantexmlhttp[rowIdOrder]'
     formData[propName] = entries.map(entry => entry.indexLine).join(',')
     const action = unescape($formDetails.attr('action'))
 
@@ -229,7 +230,7 @@ connector.fetchDetailsReimbursement = function(entry, action, formData) {
   return request({
     url: baseUrl + action,
     method: 'POST',
-    formData
+    form: formData
   }).then($ => {
     const $tables = $('#ajax-details-remboursements table')
     const $tableSummary = $tables.eq(0)
