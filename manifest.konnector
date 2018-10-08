@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.1.0",
   "name": "MGEN",
   "type": "konnector",
   "language": "node",
@@ -8,9 +8,7 @@
   "source": "git@github.com:konnectors/cozy-konnector-mgen.git",
   "editor": "Cozy",
   "vendor_link": "https://www.mgen.fr",
-  "categories": [
-    "insurance"
-  ],
+  "categories": ["insurance"],
   "fields": {
     "login": {
       "type": "text"
@@ -46,18 +44,14 @@
     "accounts": {
       "description": "Required to get the account's data",
       "type": "io.cozy.accounts",
-      "verbs": [
-        "GET"
-      ]
+      "verbs": ["GET"]
     }
   },
   "developer": {
     "name": "Cozy Cloud",
     "url": "https://cozy.io"
   },
-  "langs": [
-    "fr"
-  ],
+  "langs": ["fr"],
   "locales": {
     "fr": {
       "short_description": "Récupère toutes vos factures MGEN"
