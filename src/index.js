@@ -126,7 +126,11 @@ connector.getSectionsUrls = function($) {
     .closest('[data-tag-metier-remboursements]')
     .attr('data-matrice')
   const urlReimbursements = unescape($linkReimbursements.attr('href'))
-  result.reimbursements = `${baseUrl}${urlReimbursements}&codeMatrice=${matriceReimbursements}`
+  if (urlReimbursements && matriceReimbursements) {
+    result.reimbursements = `${baseUrl}${urlReimbursements}&codeMatrice=${matriceReimbursements}`
+  } else {
+    result.reimbursements = false
+  }
 
   log('debug', result, 'SectionsUrls')
 
@@ -150,6 +154,10 @@ const addGroupAmounts = entries => {
 }
 
 connector.fetchReimbursements = function(url) {
+  if (!url) {
+    log('error', `No page to fetch reimbursements`)
+    throw new Error(errors.VENDOR_DOWN)
+  }
   log('info', 'Fetching reimbursements')
   return request(url).then($ => {
     // table parsing
