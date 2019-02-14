@@ -171,7 +171,7 @@ connector.fetchReimbursements = function(url) {
 
         const date = moment(tds[4], 'DD/MM/YYYY')
         const entry = {
-          type: 'health',
+          type: 'health_costs',
           vendor: 'MGEN',
           isRefund: true,
           indexLine: tds[0], // removed later
