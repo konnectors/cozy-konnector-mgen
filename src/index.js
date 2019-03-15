@@ -119,19 +119,11 @@ connector.getSectionsUrls = function($) {
     result.mutuelle = false
   }
 
-  const $linkReimbursements = $("a[href*='mes-remboursements']")
-  const matriceReimbursements = $linkReimbursements
-    .closest('[data-tag-metier-remboursements]')
-    .attr('data-matrice')
-  const urlReimbursements = unescape($linkReimbursements.attr('href'))
-  if (urlReimbursements && matriceReimbursements) {
-    result.reimbursements = `${baseUrl}${urlReimbursements}&codeMatrice=${matriceReimbursements}`
-  } else {
-    result.reimbursements = false
-  }
+  // Now set directly link to remboursements
+  result.reimbursements =
+    'https://www.mgen.fr/mon-espace-perso/mes-remboursements/'
 
   log('debug', result, 'SectionsUrls')
-
   return result
 }
 
