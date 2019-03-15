@@ -20,13 +20,11 @@ const moment = require('moment')
 const bluebird = require('bluebird')
 const removeOldFiles = require('./removeOldFiles')
 
-let request = requestFactory()
-const j = request.jar()
-request = requestFactory({
+const request = requestFactory({
   cheerio: true,
   json: false,
   // debug: true,
-  jar: j
+  jar: true
 })
 
 const baseUrl = 'https://www.mgen.fr'
@@ -160,6 +158,10 @@ connector.fetchReimbursements = function(url) {
   }
   log('info', 'Fetching reimbursements')
   return request(url).then($ => {
+    // Initialise some form Data for all following POST (pdf and details)
+    const $formDetails = $('#formDetailsRemboursement')
+    const formData = serializedFormToFormData($formDetails.serializeArray())
+
     // table parsing
     let entries = Array.from($('#tableDernierRemboursement tbody tr')).map(
       tr => {
@@ -188,10 +190,12 @@ connector.fetchReimbursements = function(url) {
             'YYYY-MM-DD'
           )}_mgen.pdf`
           entry.requestOptions = {
-            jar: j,
-            headers: {
-              'User-Agent':
-                'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0'
+            method: 'POST',
+            form: {
+              ...formData,
+              urlReleve: parsedUrl.urlReleve,
+              dattrait: parsedUrl.dattrait,
+              dateReleve: parsedUrl.dateReleve
             }
           }
         }
@@ -200,9 +204,7 @@ connector.fetchReimbursements = function(url) {
       }
     )
 
-    // try to get details for the first line
-    const $formDetails = $('#formDetailsRemboursement')
-    const formData = serializedFormToFormData($formDetails.serializeArray())
+    // Initialize some form Data for fecthing details
     const propName =
       'tx_mtechremboursementxmlhttp_mtechremboursementsantexmlhttp[rowIdOrder]'
     formData[propName] = entries.map(entry => entry.indexLine).join(',')
@@ -325,13 +327,6 @@ connector.fetchAttestationMutuelle = function(url, fields) {
           modeEnvoi: 'telecharger'
         }
       }).then(() => ({
-        requestOptions: {
-          jar: j,
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0'
-          }
-        },
         fileurl: baseUrl + urls[1],
         filename: 'Attestation_mutuelle.pdf'
       }))
