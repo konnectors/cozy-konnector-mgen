@@ -18,7 +18,6 @@ const {
 } = require('cozy-konnector-libs')
 const moment = require('moment')
 const bluebird = require('bluebird')
-const removeOldFiles = require('./removeOldFiles')
 
 const request = requestFactory({
   cheerio: true,
@@ -45,12 +44,6 @@ function start(fields) {
       await saveBills(entries, fields.folderPath, {
         identifiers: 'MGEN'
       })
-      return entries
-    })
-    .then(async entries => {
-      if (process.env.NODE_ENV !== 'standalone') {
-        await removeOldFiles(fields, entries)
-      }
       return entries
     })
 }
