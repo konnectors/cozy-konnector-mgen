@@ -30,22 +30,14 @@ const baseUrl = 'https://www.mgen.fr'
 
 const connector = new BaseKonnector(start)
 
-function start(fields) {
-  return connector
-    .logIn(fields)
-    .then(connector.fetchCards)
-    .then(connector.getSectionsUrls)
-    .then(sections => {
-      return connector
-        .fetchAttestationMutuelle(sections.mutuelle, fields)
-        .then(() => connector.fetchReimbursements(sections.reimbursements))
-    })
-    .then(async entries => {
-      await saveBills(entries, fields.folderPath, {
-        identifiers: 'MGEN'
-      })
-      return entries
-    })
+async function start(fields) {
+  await connector.logIn(fields)
+  await connector.fetchCards()
+  await connector.fetchAttestationMutuelle(fields)
+  const entries = await connector.fetchReimbursements()
+  await saveBills(entries, fields.folderPath, {
+    identifiers: 'MGEN'
+  })
 }
 
 connector.logIn = function(fields) {
@@ -96,30 +88,6 @@ connector.fetchCards = function() {
   )
 }
 
-connector.getSectionsUrls = function($) {
-  log('info', 'Getting sections urls')
-  const result = {}
-  const $linkMutuelle = $(
-    "a[href*='attestation-de-droit-regime-complementaire']"
-  )
-  if ($linkMutuelle.length) {
-    const matriceMutuelle = $linkMutuelle
-      .closest('[data-tag-metier-attestations-demarches]')
-      .attr('data-matrice')
-    const urlMutuelle = unescape($linkMutuelle.attr('href'))
-    result.mutuelle = `${baseUrl}${urlMutuelle}&codeMatrice=${matriceMutuelle}`
-  } else {
-    result.mutuelle = false
-  }
-
-  // Now set directly link to remboursements
-  result.reimbursements =
-    'https://www.mgen.fr/mon-espace-perso/mes-remboursements/'
-
-  log('debug', result, 'SectionsUrls')
-  return result
-}
-
 function serializedFormToFormData(data) {
   return data.reduce((memo, item) => {
     memo[item.name] = item.value
@@ -136,12 +104,9 @@ const addGroupAmounts = entries => {
   })
 }
 
-connector.fetchReimbursements = function(url) {
-  if (!url) {
-    log('error', `No page to fetch reimbursements`)
-    throw new Error(errors.VENDOR_DOWN)
-  }
+connector.fetchReimbursements = function() {
   log('info', 'Fetching reimbursements')
+  const url = 'https://www.mgen.fr/mon-espace-perso/mes-remboursements/'
   return request(url).then($ => {
     // Initialise some form Data for all following POST (pdf and details)
     const $formDetails = $('#formDetailsRemboursement')
@@ -285,38 +250,43 @@ connector.fetchDetailsReimbursement = function(entry, action, formData) {
   })
 }
 
-connector.fetchAttestationMutuelle = function(url, fields) {
+connector.fetchAttestationMutuelle = async function(fields) {
   log('info', 'Fetching mutuelle attestation')
+  try {
+    const $ = await request(
+      'https://www.mgen.fr/mon-espace-perso/ma-carte-adherent/'
+    )
+    const $formDetails = $('.formCarteAdhRCPdf')
+    const formData = serializedFormToFormData($formDetails.serializeArray())
+    const linkPost = $('.formCarteAdhRCPdf').attr('action')
+    log('debug', linkPost, 'linkPost')
+    const script = $('.carte-adherent-entete')
+      .prev('script')
+      .html()
+    const linkGet = script.match(
+      /actionTelechargementCarteAdherentPdf = '(.*)'/
+    )[1]
+    log('debug', linkGet, 'linkGet')
 
-  if (url === false) {
-    log('info', 'No mutuelle attestation to fetch')
-    return Promise.resolve()
-  }
-
-  return request(url)
-    .then($ => {
-      const script = $('#panelAttestationDroitRO')
-        .prev('script')
-        .html()
-      const urls = script
-        .trim()
-        .split('\n')
-        .map(line => unescape(line.match(/'(.*)'/)[1]))
-      log('debug', urls, 'urls')
-
-      return request({
-        method: 'POST',
-        url: baseUrl + urls[0],
-        formData: {
-          identifiantPersonne: '0',
-          modeEnvoi: 'telecharger'
-        }
-      }).then(() => ({
-        fileurl: baseUrl + urls[1],
-        filename: 'Attestation_mutuelle.pdf'
-      }))
+    // This request is mandatory for the GET of saveFiles
+    await request({
+      uri: baseUrl + linkPost,
+      method: 'POST',
+      form: formData
     })
-    .then(entry => saveFiles([entry], fields))
+
+    // Always replace the file
+    const entry = {
+      fileurl: baseUrl + linkGet,
+      filename: 'Attestation_mutuelle.pdf',
+      shouldReplaceFile: () => true
+    }
+    await saveFiles([entry], fields)
+  } catch (e) {
+    log('warn', 'Error during fetching attestation')
+    log('warn', e.message || e)
+  }
+  return
 }
 
 module.exports = connector
