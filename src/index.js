@@ -35,9 +35,13 @@ async function start(fields) {
   await connector.fetchCards()
   await connector.fetchAttestationMutuelle(fields)
   const entries = await connector.fetchReimbursements()
-  await saveBills(entries, fields.folderPath, {
-    identifiers: 'MGEN'
-  })
+  if (entries !== false) {
+    await saveBills(entries, fields.folderPath, {
+      identifiers: 'MGEN'
+    })
+  } else {
+    log('info', 'No need to save Bills')
+  }
 }
 
 connector.logIn = function(fields) {
@@ -107,7 +111,18 @@ const addGroupAmounts = entries => {
 connector.fetchReimbursements = function() {
   log('info', 'Fetching reimbursements')
   const url = 'https://www.mgen.fr/mon-espace-perso/mes-remboursements/'
+
   return request(url).then($ => {
+    if (
+      $.html().includes('avez pas de remboursement pour les six derniers mois')
+    ) {
+      log(
+        'warn',
+        "No bills, we found 'avez pas de remboursement pour les six derniers mois' in html"
+      )
+      // This false will be catch and saveBills not execute
+      return false
+    }
     // Initialise some form Data for all following POST (pdf and details)
     const $formDetails = $('#formDetailsRemboursement')
     const formData = serializedFormToFormData($formDetails.serializeArray())
