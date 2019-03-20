@@ -113,7 +113,10 @@ connector.fetchReimbursements = function() {
   const url = 'https://www.mgen.fr/mon-espace-perso/mes-remboursements/'
 
   return request(url).then($ => {
-    log('debug', `Expect beneficiaries : ${$('#remboursement_listebenef option').length}`)
+    log(
+      'debug',
+      `Expect beneficiaries : ${$('#remboursement_listebenef option').length}`
+    )
 
     if (
       $.html().includes('avez pas de remboursement pour les six derniers mois')
