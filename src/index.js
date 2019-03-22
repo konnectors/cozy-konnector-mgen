@@ -75,6 +75,11 @@ connector.logIn = function(fields) {
       throw new Error(errors.LOGIN_FAILED)
     }
 
+    if ($.text().includes('Mgen simplifie votre connexion !')) {
+      log('warn', 'MGEN asks to change the login to an email')
+      throw new Error(errors.USER_ACTION_NEEDED)
+    }
+
     return $
   })
 }
@@ -283,27 +288,31 @@ connector.fetchAttestationMutuelle = async function(fields) {
     const script = $('.carte-adherent-entete')
       .prev('script')
       .html()
-    const linkGet = script.match(
-      /actionTelechargementCarteAdherentPdf = '(.*)'/
-    )[1]
-    log('debug', linkGet, 'linkGet')
+    if (script) {
+      const linkGet = script.match(
+        /actionTelechargementCarteAdherentPdf = '(.*)'/
+      )[1]
+      log('debug', linkGet, 'linkGet')
 
-    // This request is mandatory for the GET of saveFiles
-    await request({
-      uri: baseUrl + linkPost,
-      method: 'POST',
-      form: formData
-    })
+      // This request is mandatory for the GET of saveFiles
+      await request({
+        uri: baseUrl + linkPost,
+        method: 'POST',
+        form: formData
+      })
 
-    // Always replace the file
-    const entry = {
-      fileurl: baseUrl + linkGet,
-      filename: 'Attestation_mutuelle.pdf',
-      shouldReplaceFile: () => true
+      // Always replace the file
+      const entry = {
+        fileurl: baseUrl + linkGet,
+        filename: 'Attestation_mutuelle.pdf',
+        shouldReplaceFile: () => true
+      }
+      await saveFiles([entry], fields)
+    } else {
+      log('warn', 'No attestation to fetch')
     }
-    await saveFiles([entry], fields)
   } catch (e) {
-    log('warn', 'Error during fetching attestation')
+    log('warn', 'Error during attestation fetch')
     log('warn', e.message || e)
   }
   return
