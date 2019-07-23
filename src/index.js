@@ -33,11 +33,13 @@ const connector = new BaseKonnector(start)
 async function start(fields) {
   await connector.logIn(fields)
   await connector.fetchCards()
-  await connector.fetchAttestationMutuelle(fields)
+  await connector.fetchAttestationMutuelle(fields, this)
   const entries = await connector.fetchReimbursements()
   if (entries !== false) {
     await saveBills(entries, fields.folderPath, {
-      identifiers: 'MGEN'
+      identifiers: 'MGEN',
+      sourceAccount: this._account._id,
+      sourceAccountIdentifier: fields.login
     })
   } else {
     log('info', 'No need to save Bills')
@@ -275,7 +277,7 @@ connector.fetchDetailsReimbursement = function(entry, action, formData) {
   })
 }
 
-connector.fetchAttestationMutuelle = async function(fields) {
+connector.fetchAttestationMutuelle = async function(fields, self) {
   log('info', 'Fetching mutuelle attestation')
   try {
     const $ = await request(
@@ -307,7 +309,10 @@ connector.fetchAttestationMutuelle = async function(fields) {
         filename: 'Attestation_mutuelle.pdf',
         shouldReplaceFile: () => true
       }
-      await saveFiles([entry], fields)
+      await saveFiles([entry], fields, {
+        sourceAccount: self._account._id,
+        sourceAccountIdentifier: fields.login
+      })
     } else {
       log('warn', 'No attestation to fetch')
     }
