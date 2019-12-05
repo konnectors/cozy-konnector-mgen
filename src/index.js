@@ -38,8 +38,10 @@ async function start(fields) {
   if (entries !== false) {
     await saveBills(entries, fields.folderPath, {
       identifiers: 'MGEN',
-      sourceAccount: this._account._id,
-      sourceAccountIdentifier: fields.login
+      sourceAccount: this.accountId,
+      sourceAccountIdentifier: fields.login,
+      linkBankOperations: false,
+      fileIdAttributes: ['filename']
     })
   } else {
     log('info', 'No need to save Bills')
@@ -311,6 +313,49 @@ connector.fetchAttestationMutuelle = async function(fields, self) {
       }
       await saveFiles([entry], fields, {
         sourceAccount: self._account._id,
+        sourceAccountIdentifier: fields.login,
+        fileIdAttributes: ['filename']
+      })
+    } else {
+      await connector.fetchAttestationMutuelleObligatoire(fields, self)
+    }
+  } catch (e) {
+    log('warn', 'Error during attestation fetch')
+    log('warn', e.message || e)
+  }
+  return
+}
+
+connector.fetchAttestationMutuelleObligatoire = async function(fields, self) {
+  log('debug', 'Fetching mutuelle attestation régime obligatoire')
+  try {
+    const $ = await request(
+      'https://www.mgen.fr/mon-espace-perso/attestation-de-droit-regime-obligatoire/'
+    )
+    const $formDetails = $('#formAttestationDroitRO')
+    const formData = serializedFormToFormData($formDetails.serializeArray())
+    const linkPost = $formDetails.attr('action')
+    const script = $('#panelAttestationDroitRO')
+      .prev('script')
+      .html()
+    if (script) {
+      const linkGet = script.match(/actionTelechargerPdf = '(.*)'/)[1]
+
+      // This request is mandatory for the GET of saveFiles
+      await request({
+        uri: baseUrl + linkPost,
+        method: 'POST',
+        form: { ...formData, modeEnvoi: 1, radChoixAttestationPdf: 99 }
+      })
+
+      // Always replace the file
+      const entry = {
+        fileurl: baseUrl + linkGet,
+        filename: 'Attestation_mutuelle.pdf',
+        shouldReplaceFile: () => true
+      }
+      await saveFiles([entry], fields, {
+        sourceAccount: self.accountId,
         sourceAccountIdentifier: fields.login
       })
     } else {
