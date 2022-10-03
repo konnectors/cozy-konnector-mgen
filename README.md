@@ -186,7 +186,7 @@ MGEN connector is developed by Christophe Thiriot and distributed under the [AGP
 
 [cozy]: https://cozy.io "Cozy Cloud"
 [agpl-3.0]: https://www.gnu.org/licenses/agpl-3.0.html
-[freenode]: http://webchat.freenode.net/?randomnick=1&channels=%23cozycloud&uio=d4
+[libera]: https://web.libera.chat/#cozycloud
 [forum]: https://forum.cozy.io/
 [github]: https://github.com/cozy/
 [nodejs]: https://nodejs.org/
