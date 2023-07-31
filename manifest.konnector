@@ -1,15 +1,15 @@
 {
-  "version": "1.0.0",
-  "name": "Template",
+  "version": "2.0.0",
+  "name": "MGEN",
   "type": "konnector",
   "language": "node",
   "icon": "icon.svg",
-  "slug": "template",
-  "source": "git@github.com:konnectors/template_ccc.git",
+  "slug": "mgen",
+  "source": "git@github.com:konnectors/cozy-konnector-mgen.git",
   "editor": "Cozy",
-  "vendor_link": "https://books.toscrape.com/",
+  "vendor_link": "https://mgen.fr/",
   "categories": [
-    "transport"
+    "insurance"
   ],
   "fields": { },
   "clientSide": true,
@@ -27,20 +27,59 @@
     },
     "files": {
       "type": "io.cozy.files"
+    },
+    "carbon_copy": {
+      "type": "io.cozy.certified.carbon_copy"
+    },
+    "identities": {
+      "type": "io.cozy.identities"
     }
   },
   "locales": {
     "fr": {
-      "short_description": "Récupère la liste de livres",
-      "long_description": "Récupère la liste de livre sur le site exemple",
+      "short_description": "Récupère vos factures MGEN.",
+      "long_description": "Récupère vos factures MGEN.",
       "permissions": {
+        "carboncopy": {
+          "description": "Utilisé pour certifier que vos fichiers sont copie conforme avec les documents d'origine"
+        },
         "bills": {
           "description": "Utilisé pour sauver les données des factures"
         },
         "files": {
           "description": "Utilisé pour sauvegarder les factures"
+        },
+        "identities": {
+          "description": "Utilisé pour sauvegarder l'identité de l'utilisateur"
+        }
+      }
+    },
+    "en": {
+      "short_description": "Fetch a list of MGEN invoices.",
+      "long_description": "Fetch a list of MGEN invoices.",
+      "permissions": {
+        "carboncopy": {
+          "description": "Required for carbon copy documents"
+        },
+        "bills": {
+          "description": "Required to save the bills data"
+        },
+        "files": {
+          "description": "Required to save the bills"
+        },
+        "identities": {
+          "description": "Required to save the user identity"
         }
       }
     }
-  }
+  },
+  "qualification_labels": [
+    "health_invoice",
+    "other_health_document"
+  ],
+  "features": [
+    "METADATA_DEDUP",
+    "CARBON_COPY",
+    "DOC_QUALIFICATION_V2"
+  ]
 }
