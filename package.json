@@ -9,7 +9,9 @@
   "dependencies": {
     "@cozy/minilog": "1.0.0",
     "cozy-clisk": "^0.22.0",
-    "date-fns": "2.30.0"
+    "date-fns": "2.30.0",
+    "ky": "^0.33.3",
+    "p-wait-for": "^5.0.2"
   },
   "eslintConfig": {
     "extends": [
