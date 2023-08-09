@@ -11,6 +11,40 @@ const baseUrl = 'https://www.mgen.fr'
 const loginFormUrl = 'https://www.mgen.fr/login-adherent/'
 const accountUrl = 'https://www.mgen.fr/mon-espace-perso/'
 
+let userInfos = []
+let configInfos = []
+
+// The override here is needed to intercept XHR requests made during the navigation for user personnal informations
+var proxied = window.XMLHttpRequest.prototype.open
+window.XMLHttpRequest.prototype.open = function () {
+  var originalResponse = this
+  if (
+    arguments[1].includes(
+      '/attestation-generique/attestation/eligibilite?noIde='
+    )
+  ) {
+    originalResponse.addEventListener('readystatechange', function () {
+      if (originalResponse.readyState === 4) {
+        const jsonInfos = JSON.parse(originalResponse.responseText)
+        userInfos.push(jsonInfos)
+      }
+    })
+    return proxied.apply(this, [].slice.call(arguments))
+  }
+
+  if (arguments[1].includes('/assets/config.json')) {
+    originalResponse.addEventListener('readystatechange', function () {
+      if (originalResponse.readyState === 4) {
+        const jsonInfos = JSON.parse(originalResponse.responseText)
+        configInfos.push(jsonInfos)
+      }
+    })
+    return proxied.apply(this, [].slice.call(arguments))
+  }
+
+  return proxied.apply(this, [].slice.call(arguments))
+}
+
 class MgenContentScript extends ContentScript {
   async navigateToLoginForm() {
     this.log('info', '🤖 navigateToLoginForm')
@@ -39,14 +73,26 @@ class MgenContentScript extends ContentScript {
   async ensureAuthenticated({ account }) {
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
     this.log('info', '🤖 ensureAuthenticated')
-    // if (!account) {
-    //   await this.ensureNotAuthenticated()
-    // }
+    if (!account) {
+      await this.ensureNotAuthenticated()
+    }
     await this.navigateToLoginForm()
     const authenticated = await this.runInWorker('checkAuthenticated')
     if (!authenticated) {
       this.log('info', 'Not authenticated')
-      await this.showLoginFormAndWaitForAuthentication()
+      let credentials = await this.getCredentials()
+      if (credentials && credentials.email && credentials.password) {
+        try {
+          this.log('info', 'Got credentials, trying autologin')
+          await this.tryAutoLogin(credentials)
+        } catch (error) {
+          this.log('warn', 'autoLogin error' + error.message)
+          await this.showLoginFormAndWaitForAuthentication()
+        }
+      } else {
+        this.log('info', 'No credentials found, waiting for user input')
+        await this.showLoginFormAndWaitForAuthentication()
+      }
     }
     const stayLoggedSelector =
       '.btn-logout-group > a[href="/mon-espace-perso/"]'
@@ -65,8 +111,14 @@ class MgenContentScript extends ContentScript {
     await this.navigateToLoginForm()
     const authenticated = await this.runInWorker('checkAuthenticated')
     if (!authenticated) {
+      this.log('info', 'ensureNotAuthenticated - Not auth')
       return true
     }
+    this.log('info', 'ensureNotAuthenticated - LogOut')
+    await this.clickAndWait(
+      '.btn-logout-group > a[href*="https://www.mgen.fr/mon-espace-perso/?tx_mtechmgenconnectxmlhttp_mtechmgenconnectlistepartenairesxmlhttp"]',
+      '#user'
+    )
     return true
   }
 
@@ -92,7 +144,6 @@ class MgenContentScript extends ContentScript {
         loginField,
         passwordField
       )
-      this.log('info', `userCreds : ${JSON.stringify(userCredentials)}`)
       this.log('info', "Sending user's credentials to Pilot")
       this.sendToPilot({ userCredentials })
     }
@@ -133,30 +184,152 @@ class MgenContentScript extends ContentScript {
 
   async getUserDataFromWebsite() {
     this.log('info', '🤖 getUserDataFromWebsite')
-    // We'll need a 2FA to reach the infos page, and for now the person who owns the account is not available for a 2FA
-    this.log(
-      'info',
-      `store userCreds : ${JSON.stringify(this.store.userCredentials)}`
+    await this.waitForElementInWorker(
+      'a[href="/mon-espace-perso/rubrique/telecharger-attestations/"]'
     )
-    // await this.waitForElementInWorker('[pause]')
-    // await this.runInWorker(
-    //   'click',
-    //   'a[href="/mon-espace-perso/vos-coordonnees/"]'
-    // )
-    // await Promise.race([
-    //   this.waitForElementInWorker('#envoyerCodeForm'),
-    //   this.waitForElementInWorker('')
-    // ])
+    await this.clickAndWait(
+      'a[href="/mon-espace-perso/rubrique/telecharger-attestations/"]',
+      '.mtech_ressources_carte'
+    )
+    await this.clickAndWait(
+      '.mtech_ressources_carte > div > a',
+      'button[aria-label="Télécharger Attestation de droits"]'
+    )
+    await this.runInWorkerUntilTrue({
+      method: 'checkInterception',
+      args: ['userInfos']
+    })
+    await this.runInWorker('getIdentity')
+    if (!this.store.userIdentity?.email) {
+      throw new Error(
+        'getUserDataFromWebsite: Could not find a email in user identity'
+      )
+    }
     return {
-      sourceAccountIdentifier:
-        'sourceAccountIdentifierToReplaceWhenUserDatatHasBeenScraped'
+      sourceAccountIdentifier: this.store.userIdentity.email
     }
   }
 
   async fetch(context) {
     this.log('info', '🤖 fetch')
+    if (this.store.userCredentials) {
+      await this.saveCredentials(this.store.userCredentials)
+    }
+    await this.saveIdentity({ contact: this.store.userIdentity })
+    await this.runInWorkerUntilTrue({
+      method: 'checkInterception',
+      args: ['configInfos']
+    })
+    const attestationAndCard = await this.runInWorker('getAttestationAndCard')
+    this.log('info', `attestationAndCard length : ${attestationAndCard.length}`)
+    await this.saveFiles(attestationAndCard, {
+      context,
+      contentType: 'application/pdf',
+      fileIdAttributes: ['filename'],
+      qualificationLabel: 'other_health_document'
+    })
     await this.goto(accountUrl)
     await this.waitForElementInWorker('#listeRemboursementsSante')
+    await this.waitForElementInWorker('[pause]')
+    await this.fetchBills(context)
+  }
+
+  async tryAutoLogin(credentials) {
+    this.log('info', 'TryAutologin starts')
+    await this.autoLogin(credentials)
+    await this.waitForElementInWorker('.deconnexion_auth_link')
+  }
+
+  async autoLogin(credentials) {
+    this.log('info', 'AutoLogin starts')
+    await this.waitForElementInWorker('#user')
+    await this.runInWorker('fillText', '#user', credentials.email)
+    await this.runInWorker('fillText', '#pass', credentials.password)
+    await this.runInWorker('click', '#loginBtn')
+  }
+
+  async getAttestationAndCard() {
+    this.log('info', 'getAttestationAndCard starts')
+    const allAttestations = []
+    const documents = await this.fetchDocuments()
+    for (const document of documents) {
+      const oneDoc = {
+        filename: document.nom,
+        dataUri: `data:application/pdf;base64,${document.flux}`,
+        shouldReplaceFile: () => true,
+        date: new Date(),
+        vendor: 'MGEN',
+        fileAttributes: {
+          metadata: {
+            contentAuthor: 'mgen.fr',
+            issueDate: new Date(),
+            datetime: new Date(),
+            datetimeLabel: 'issueDate',
+            carbonCopy: true
+          }
+        }
+      }
+      allAttestations.push(oneDoc)
+    }
+    return allAttestations
+  }
+
+  async fetchDocuments() {
+    this.log('info', 'fetchDocuments starts')
+    const attestationsToCompute = []
+    const foundInfos = userInfos[0].records[0]
+    const foundConfig = configInfos[0]
+    const apiKey = foundConfig.apim.apiKey
+    const authInfos = JSON.parse(window.localStorage.getItem('auth-info'))
+    const token = authInfos.access_token
+    const tokenType = authInfos.token_type
+    const attestationPostInfos = {
+      typeAttestation: 'ATTESTATION_RO',
+      personneEligible: {
+        ...foundInfos
+      },
+      topExoTM: foundInfos.topExoTM
+    }
+    const headers = {
+      Accept: '*/*',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Api-Key': apiKey,
+      Authorization: `${tokenType} ${token}`,
+      'Content-Type': 'application/json'
+    }
+    const attestationResponse = await ky
+      .post(
+        'https://api.mgen.fr/prod24/espace-perso/v1/attestation-generique/attestation/telecharger',
+        {
+          headers,
+          body: JSON.stringify(attestationPostInfos),
+          timeout: 30000
+        }
+      )
+      .json()
+    attestationsToCompute.push(attestationResponse)
+    const mutualCardPostInfos = {
+      typeAttestation: 'ATTESTATION_RC',
+      personneEligible: {
+        ...foundInfos
+      },
+      topExoTM: foundInfos.topExoTM
+    }
+    const cardResponse = await ky
+      .post(
+        'https://api.mgen.fr/prod24/espace-perso/v1/attestation-generique/attestation/telecharger',
+        {
+          headers,
+          body: JSON.stringify(mutualCardPostInfos),
+          timeout: 30000
+        }
+      )
+      .json()
+    attestationsToCompute.push(cardResponse)
+    return attestationsToCompute
+  }
+
+  async fetchBills(context) {
     await this.runInWorker(
       'click',
       'a[href="/mon-espace-perso/mes-remboursements/"]'
@@ -166,10 +339,10 @@ class MgenContentScript extends ContentScript {
       this.waitForElementInWorker('#sectionRechercheRemboursements'),
       this.waitForElementInWorker('ol')
     ])
+    await this.runInWorkerUntilTrue({ method: 'checkNumberOfBills' })
     let hasNextPage = true
     let pageNumber = 1
     while (hasNextPage) {
-      this.log('info', 'getting in while loop')
       const foundBillsLength = await this.evaluateInWorker(
         function getBillsLength() {
           return document.querySelectorAll('.ligne-remboursement').length
@@ -187,21 +360,25 @@ class MgenContentScript extends ContentScript {
         await this.navigateToBillDetails(i)
         const secondBillPart = await this.runInWorker('getSecondBillPart')
         const oneBill = { ...firstBillPart, ...secondBillPart }
-        // Save files before navigation
-        this.log(
-          'info',
-          `oneBill before saveBills : ${JSON.stringify(oneBill)}`
-        )
         await this.clickAndWait('.backLink', '#tableDernierRemboursement')
         if (pageNumber > 1) {
           this.log('info', `pageNumber is ${pageNumber}`)
           for (let j = 0; j < pageNumber - 1; j++) {
             await this.runInWorkerUntilTrue({ method: 'removeBillsElements' })
-            await this.runInWorker(
-              'click',
-              '#tableDernierRemboursement_next > a'
-            )
-            await this.waitForElementInWorker('.ligne-remboursement')
+            await this.runInWorker('click', '#tableDernierRemboursement_next')
+            await Promise.race([
+              this.waitForElementInWorker('.ligne-remboursement'),
+              this.waitForElementInWorker('.dataTables_empty')
+            ])
+            if (await this.isElementInWorker('.dataTables_empty')) {
+              await this.evaluateInWorker(function reloadPage() {
+                location.reload()
+              })
+              await this.waitForElementInWorker('.ligne-remboursement')
+              // If we're getting into this condition, the reload lead to the first bills page
+              // as we still need to reach the wanted page, reseting j to 0 force the loop to restart as a brand new loop
+              j = 0
+            }
           }
         }
         await this.saveBills([oneBill], {
@@ -216,16 +393,132 @@ class MgenContentScript extends ContentScript {
         }
       }
       hasNextPage = await this.runInWorker('checkNextPage')
+      this.log('info', `hasNextPage is ${hasNextPage}`)
       if (hasNextPage) {
         this.log('info', 'nextPage condition')
         // Removing all the bills element so we can wait for them when landing on the next bills page
         await this.runInWorkerUntilTrue({ method: 'removeBillsElements' })
-        await this.runInWorker('click', '#tableDernierRemboursement_next > a')
+        this.log('info', 'bills element removed')
+        await this.runInWorker('click', '#tableDernierRemboursement_next')
+        this.log(
+          'info',
+          'nextPage button clicked, waiting for .ligne-remboursement'
+        )
         await this.waitForElementInWorker('.ligne-remboursement')
+        this.log(
+          'info',
+          `.ligne-remboursement found, pageNumber is ${pageNumber}`
+        )
         pageNumber++
+        this.log('info', `pageNumber implemented, now equals ${pageNumber}`)
         // await this.waitForElementInWorker('[pause]')
       }
     }
+  }
+
+  async checkInterception(interceptionType) {
+    this.log('info', `checkInterception starts - ${interceptionType}`)
+    if (interceptionType === 'userInfos') {
+      await waitFor(
+        () => {
+          if (userInfos.length > 0) {
+            return true
+          } else {
+            return false
+          }
+        },
+        {
+          interval: 100,
+          timeout: {
+            milliseconds: 10000,
+            message: new TimeoutError('checkInterception timed out after 10sec')
+          }
+        }
+      )
+    }
+    if (interceptionType === 'configInfos') {
+      await waitFor(
+        () => {
+          if (configInfos.length > 0) {
+            return true
+          } else {
+            return false
+          }
+        },
+        {
+          interval: 100,
+          timeout: {
+            milliseconds: 10000,
+            message: new TimeoutError('checkInterception timed out after 10sec')
+          }
+        }
+      )
+    }
+
+    return true
+  }
+
+  async getIdentity() {
+    this.log('info', 'getIdentity starts')
+    const foundInfos = userInfos[0].records[0]
+    const userIdentity = {
+      email: foundInfos.adresseEmail,
+      socialSecurityNumber: foundInfos.numInsee,
+      birthDate: foundInfos.dateNaissance,
+      name: {
+        givenName: foundInfos.prenom,
+        familyName: foundInfos.nom
+      },
+      address: []
+    }
+    const foundAddress = foundInfos.adressePostale
+
+    const computedAddress = this.getAddress(foundAddress)
+    userIdentity.address.push(computedAddress)
+    await this.sendToPilot({ userIdentity })
+  }
+
+  getAddress(foundAddress) {
+    this.log('info', 'getAddress starts')
+    const object = {}
+    let formattedAddress = ''
+
+    if (foundAddress.bpOuLieuDit) {
+      object.locality = foundAddress.bpOuLieuDit
+      formattedAddress = `${formattedAddress}${object.locality} `
+    }
+    if (foundAddress.etageEscalierAppartement) {
+      object.floorIndicator = foundAddress.etageEscalierAppartement
+      formattedAddress = `${formattedAddress}${object.floorIndicator} `
+    }
+    if (foundAddress.immeubleBatimentResidence) {
+      object.buildingIndicator = foundAddress.immeubleBatimentResidence
+      formattedAddress = `${formattedAddress}${object.buildingIndicator} `
+    }
+    if (foundAddress.indicateurRepetition) {
+      object.addressComplement = foundAddress.indicateurRepetition
+      formattedAddress = `${formattedAddress}${object.addressComplement} `
+    }
+    if (foundAddress.numVoie) {
+      object.streetNumber = foundAddress.numVoie
+      formattedAddress = `${formattedAddress}${object.streetNumber} `
+    }
+    if (foundAddress.libelleVoie) {
+      object.street = foundAddress.libelleVoie
+      formattedAddress = `${formattedAddress}${object.street} `
+    }
+    if (foundAddress.codePostal) {
+      object.postCode = foundAddress.codePostal
+      formattedAddress = `${formattedAddress}${object.postCode} `
+    }
+    if (foundAddress.localisation) {
+      object.city = foundAddress.localisation
+      formattedAddress = `${formattedAddress}${object.city}`
+    }
+
+    object.formattedAddress = formattedAddress
+
+    return object
   }
 
   async getFirstBillPart(i) {
@@ -303,7 +596,7 @@ class MgenContentScript extends ContentScript {
         metadata: {
           contentAuthor: 'mgen.fr',
           issueDate: new Date(),
-          datetime: parse(treatmentDate, 'dd/MM/yyyy', new Date()),
+          datetime: treatmentDate,
           datetimeLabel: 'issueDate',
           carbonCopy: true
         }
@@ -418,6 +711,31 @@ class MgenContentScript extends ContentScript {
         return sortedObj
       }, {})
   }
+
+  async checkNumberOfBills() {
+    this.log('info', 'checkNumberOfBills starts')
+    await waitFor(
+      () => {
+        const elementsLength = document.querySelectorAll(
+          '.ligne-remboursement'
+        ).length
+        // Base on 20 because this is the maximum number of bills per page
+        if (elementsLength <= 20) {
+          this.log('debug', 'Bills table is ready')
+          return true
+        }
+        return false
+      },
+      {
+        interval: 100,
+        timeout: {
+          milliseconds: 10000,
+          message: new TimeoutError('checkNumberOfBills timed out after 10sec')
+        }
+      }
+    )
+    return true
+  }
 }
 const connector = new MgenContentScript()
 connector
@@ -427,7 +745,11 @@ connector
       'getSecondBillPart',
       'checkNextPage',
       'removeBillsElements',
-      'clickBillDetails'
+      'clickBillDetails',
+      'checkNumberOfBills',
+      'checkInterception',
+      'getIdentity',
+      'getAttestationAndCard'
     ]
   })
   .catch(err => {
