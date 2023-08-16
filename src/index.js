@@ -1,6 +1,6 @@
 import { ContentScript } from 'cozy-clisk/dist/contentscript'
 import Minilog from '@cozy/minilog'
-import { parse, format } from 'date-fns'
+import { parse, format, subMonths } from 'date-fns'
 import { blobToBase64 } from 'cozy-clisk/dist/contentscript/utils'
 import ky from 'ky'
 import waitFor, { TimeoutError } from 'p-wait-for'
@@ -338,37 +338,59 @@ class MgenContentScript extends ContentScript {
       this.waitForElementInWorker('ol')
     ])
     await this.runInWorkerUntilTrue({ method: 'checkNumberOfBills' })
-    let hasNextPage = true
-    const billsArray = []
-    while (hasNextPage) {
-      const foundBillsLength = await this.evaluateInWorker(
-        function getBillsLength() {
-          return document.querySelectorAll('.ligne-remboursement').length
+
+    let hasNextPeriod = true
+    let blankPeriodsInARow = 0
+    while (hasNextPeriod) {
+      let hasNextPage = true
+      const billsArray = []
+      while (hasNextPage) {
+        const foundBillsLength = await this.evaluateInWorker(
+          function getBillsLength() {
+            return document.querySelectorAll('.ligne-remboursement').length
+          }
+        )
+        for (let i = 0; i < foundBillsLength; i++) {
+          const oneBill = await this.runInWorker('getBills', i)
+          if (oneBill === null) {
+            this.log('info', 'No pdf to download for this file, jumping it')
+            continue
+          }
+          billsArray.push(oneBill)
         }
-      )
-      for (let i = 0; i < foundBillsLength; i++) {
-        const oneBill = await this.runInWorker('getBills', i)
-        if (oneBill === null) {
-          this.log('info', 'No pdf to download for this file, jumping it')
+        hasNextPage = await this.runInWorker('checkNextPage')
+        if (hasNextPage) {
+          this.log('info', 'nextPage condition')
+          // The click not really load a page, it's just changing table infos wich is pretty much instantaneous
+          // No need to delete elements or wait for any selectors
+          await this.runInWorker('click', '#tableDernierRemboursement_next')
+        }
+      }
+      await this.saveBills(billsArray, {
+        context,
+        contentType: 'application/pdf',
+        fileIdAttributes: ['vendorRef'],
+        qualificationLabel: 'health_invoice'
+      })
+      this.log('info', 'All bills for this period has been treated')
+
+      await this.changePeriod()
+      if (await this.isElementInWorker('#noRembFocus')) {
+        this.log('info', 'This period has no bills, continue')
+        blankPeriodsInARow++
+        // As we cannot know when the user subscribed on the website, we assume if there is 3 periods in a row without bills,
+        // we should have reached beyond the user's subscription date
+        if (blankPeriodsInARow === 3) {
+          this.log('info', 'No more bills found, fetch completed')
+          hasNextPeriod = false
           continue
         }
-        billsArray.push(oneBill)
-      }
-      hasNextPage = await this.runInWorker('checkNextPage')
-      if (hasNextPage) {
-        this.log('info', 'nextPage condition')
-        // The click not really load a page, it's just changing table infos wich is pretty much instantaneous
-        // No need to delete elements or wait for any selectors
-        await this.runInWorker('click', '#tableDernierRemboursement_next')
+      } else {
+        this.log('info', 'Blank row ends, found bills for this period')
+        blankPeriodsInARow = 0
       }
     }
-    await this.saveBills(billsArray, {
-      context,
-      contentType: 'application/pdf',
-      fileIdAttributes: ['vendorRef'],
-      qualificationLabel: 'health_invoice'
-    })
-    this.log('info', 'All bills for this period has been treated')
+    this.log('info', 'All available bills for all periods has been saved')
   }
 
   async checkInterception(interceptionType) {
@@ -629,7 +651,54 @@ class MgenContentScript extends ContentScript {
     )
     return true
   }
+
+  async changePeriod() {
+    this.log('info', 'changePeriod starts')
+    const periodStartDate = await this.evaluateInWorker(
+      function getStartDate() {
+        return document.querySelector('#remboursementDateDebut').value
+      }
+    )
+    // To change periods, we're getting the startDate of the actual period, substract 6 months to get the new startDate
+    // and use the actual startDate as the endDate for the next period.
+    const nextPeriodStartDate = await this.getSubstractedDate(periodStartDate)
+    await this.navigateToNextPeriod(periodStartDate, nextPeriodStartDate)
+  }
+
+  getSubstractedDate(inputDate) {
+    this.log('info', 'getSubstractedDate starts')
+    const parsedDate = parse(inputDate, 'dd/MM/yyyy', new Date())
+    const newDate = subMonths(parsedDate, 6)
+    return format(newDate, 'dd-MM-yyyy')
+  }
+
+  async navigateToNextPeriod(endDate, startDate) {
+    this.log('info', 'navigateToNextPeriod starts')
+    await this.runInWorker('changePeriodValues', endDate, startDate)
+    await this.runInWorker('click', 'input[value="Rechercher"]')
+    await Promise.race([
+      this.waitForElementInWorker('#tableDernierRemboursement'),
+      this.waitForElementInWorker('#noRembFocus')
+    ])
+  }
+
+  changePeriodValues(endDate, startDate) {
+    document.querySelector('#remboursementDateDebut').value = startDate
+    document.querySelector('#remboursementDateFin').value = endDate
+    const noBillselement = document.querySelector('#noRembFocus')
+    const billsTable = document.querySelector('#tableDernierRemboursement')
+    // Removing table containing the bills or the noBills element to be able to wait for it after changing the period
+    if (billsTable) {
+      this.log('info', 'Removing billsTable')
+      billsTable.remove()
+    }
+    if (noBillselement) {
+      this.log('info', 'Removing noBillsElement')
+      noBillselement.remove()
+    }
+  }
 }
+
 const connector = new MgenContentScript()
 connector
   .init({
@@ -639,7 +708,9 @@ connector
       'checkNumberOfBills',
       'checkInterception',
       'getIdentity',
-      'getAttestationAndCard'
+      'getAttestationAndCard',
+      'changePeriod',
+      'changePeriodValues'
     ]
   })
   .catch(err => {
