@@ -57,10 +57,15 @@ class MgenContentScript extends ContentScript {
     ])
   }
 
-  onWorkerEvent(event, payload) {
+  onWorkerEvent({ event, payload }) {
+    this.log('info', 'onWorkerEvent starts')
     if (event === 'loginSubmit') {
       this.log('info', 'received loginSubmit, blocking user interactions')
       this.blockWorkerInteractions()
+      const { email, password } = payload || {}
+      if (email && password) {
+        this.saveCredentials({ email, password })
+      }
     } else if (event === 'loginError') {
       this.log(
         'info',
@@ -71,8 +76,8 @@ class MgenContentScript extends ContentScript {
   }
 
   async ensureAuthenticated({ account }) {
-    this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
     this.log('info', '🤖 ensureAuthenticated')
+    this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
     if (!account) {
       await this.ensureNotAuthenticated()
     }
@@ -123,30 +128,28 @@ class MgenContentScript extends ContentScript {
   }
 
   onWorkerReady() {
-    const button = document.querySelector('input[type=submit]')
-    if (button) {
-      button.addEventListener('click', () =>
-        this.bridge.emit('workerEvent', 'loginSubmit')
-      )
-    }
-    const error = document.querySelector('.error')
-    if (error) {
-      this.bridge.emit('workerEvent', 'loginError', { msg: error.innerHTML })
-    }
+    this.log('info', `onWorkerReady starts`)
+    window.addEventListener('DOMContentLoaded', () => {
+      const button = document.querySelector('#loginBtn')
+      if (button) {
+        button.addEventListener('click', () => {
+          const password = document.querySelector('#pass')?.value
+          const email = document.querySelector('#user')?.value
+          this.bridge.emit('workerEvent', {
+            event: 'loginSubmit',
+            payload: { email, password }
+          })
+        })
+      }
+      const error = document.querySelector('.alert-danger')
+      if (error) {
+        this.bridge.emit('workerEvent', 'loginError', { msg: error.innerHTML })
+      }
+    })
   }
 
   async checkAuthenticated() {
     this.log('info', 'checkauthenticated starts')
-    const passwordField = document.querySelector('#pass')
-    const loginField = document.querySelector('#user')
-    if (passwordField && loginField) {
-      const userCredentials = await this.findAndSendCredentials.bind(this)(
-        loginField,
-        passwordField
-      )
-      this.log('info', "Sending user's credentials to Pilot")
-      this.sendToPilot({ userCredentials })
-    }
     if (
       document.querySelector(
         '.btn-logout-group > a[href*="https://www.mgen.fr/mon-espace-perso/?tx_mtechmgenconnectxmlhttp_mtechmgenconnectlistepartenairesxmlhttp"]'
@@ -212,9 +215,6 @@ class MgenContentScript extends ContentScript {
 
   async fetch(context) {
     this.log('info', '🤖 fetch')
-    if (this.store.userCredentials) {
-      await this.saveCredentials(this.store.userCredentials)
-    }
     await this.saveIdentity({ contact: this.store.userIdentity })
     await this.runInWorkerUntilTrue({
       method: 'checkInterception',
@@ -243,6 +243,8 @@ class MgenContentScript extends ContentScript {
     await this.waitForElementInWorker('#user')
     await this.runInWorker('fillText', '#user', credentials.email)
     await this.runInWorker('fillText', '#pass', credentials.password)
+    // Here we need to wait for an invisble captcha to finish to be able to send the login form
+    await this.runInWorkerUntilTrue({ method: 'checkCaptcha' })
     await this.runInWorker('click', '#loginBtn')
   }
 
@@ -432,6 +434,30 @@ class MgenContentScript extends ContentScript {
       )
     }
 
+    return true
+  }
+
+  async checkCaptcha() {
+    this.log('info', 'checkCaptcha starts')
+    await waitFor(
+      () => {
+        const captcahToken = document.querySelector('#li-antibot-token')?.value
+        if (captcahToken.length === 0) {
+          this.log('info', 'Invisble captcha not finished')
+          return false
+        } else {
+          this.log('info', 'Invisble captcha done, continue autologin')
+          return true
+        }
+      },
+      {
+        interval: 1000,
+        timeout: {
+          milliseconds: 10000,
+          message: new TimeoutError('checkCaptcha timed out after 10sec')
+        }
+      }
+    )
     return true
   }
 
@@ -710,7 +736,8 @@ connector
       'getIdentity',
       'getAttestationAndCard',
       'changePeriod',
-      'changePeriodValues'
+      'changePeriodValues',
+      'checkCaptcha'
     ]
   })
   .catch(err => {
