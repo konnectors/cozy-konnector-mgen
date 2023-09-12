@@ -274,6 +274,26 @@ class MgenContentScript extends ContentScript {
     return allAttestations
   }
 
+  async downloadFileInWorker(entry) {
+    const { fileurl, formDataArray, queryParams } = entry
+
+    let searchParams = new FormData()
+    formDataArray.forEach(item => {
+      searchParams.set(item.inputName, item.inputValue)
+    })
+    for (const i in queryParams) {
+      searchParams.set(i, queryParams[i])
+    }
+
+    const response = await ky
+      .post(fileurl, {
+        body: searchParams
+      })
+      .blob()
+
+    return await blobToBase64(response)
+  }
+
   async fetchDocuments() {
     this.log('info', 'fetchDocuments starts')
     const attestationsToCompute = []
@@ -574,19 +594,15 @@ class MgenContentScript extends ContentScript {
       const inputValue = input.getAttribute('value')
       formDataArray.push({ inputName, inputValue })
     }
-    let searchParams = new FormData()
-    formDataArray.forEach(item => {
-      searchParams.set(item.inputName, item.inputValue)
-    })
-    searchParams.set('urlReleve', queryParams.urlReleve)
-    searchParams.set('dattrait', queryParams.dattrait)
-    searchParams.set('dateReleve', queryParams.dateReleve)
     const oneBill = {
       vendorRef,
       date: treatmentDate,
       treatmentDate,
       reimbursmentDate,
       beneficiary,
+      fileurl,
+      formDataArray,
+      queryParams,
       filename: `${format(
         treatmentDate,
         'yyyy-MM-dd'
@@ -604,13 +620,6 @@ class MgenContentScript extends ContentScript {
         }
       }
     }
-    const response = await ky
-      .post(fileurl, {
-        body: searchParams
-      })
-      .blob()
-
-    oneBill.dataUri = await blobToBase64(response)
     return oneBill
   }
 
