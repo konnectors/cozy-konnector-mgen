@@ -13783,15 +13783,10 @@ class MgenContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   async getBills(i) {
     this.log('info', 'getBills starts')
     const foundBillsElements = document.querySelectorAll('.ligne-remboursement')
-    const innerHTMLForOneBill = []
-    const infosElements = foundBillsElements[i].querySelectorAll('td')
-    for (let j = 0; j < infosElements.length; j++) {
-      if (j === infosElements.length - 1) {
-        this.log('info', 'last row, not containing anything usefull')
-        continue
-      }
-      innerHTMLForOneBill.push(infosElements[j].innerHTML)
-    }
+    const infosElements = Array.from(
+      foundBillsElements[i].querySelectorAll('td')
+    )
+    const innerHTMLForOneBill = infosElements.map(el => el.innerHTML)
     const [
       foundTreatmentDate,
       nameInfos,
@@ -13830,10 +13825,16 @@ class MgenContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       const inputValue = input.getAttribute('value')
       formDataArray.push({ inputName, inputValue })
     }
+
+    const isThirdPartyPayer = await this.fetchThirdPartyPayerInDetails(
+      infosElements
+    )
+
     const oneBill = {
       vendorRef,
       date: treatmentDate,
       treatmentDate,
+      isThirdPartyPayer,
       reimbursmentDate,
       beneficiary,
       fileurl,
@@ -13857,6 +13858,34 @@ class MgenContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       }
     }
     return oneBill
+  }
+
+  async fetchThirdPartyPayerInDetails(rowTds) {
+    const $form = document.querySelector('#formDetailsRemboursement')
+    const formData = Array.from(
+      document.querySelectorAll('#formDetailsRemboursement > div > input')
+    ).reduce((form, el) => {
+      form.set(el.getAttribute('name'), el.value)
+      return form
+    }, new FormData())
+    const dataTable = window.$('#tableDernierRemboursement').DataTable()
+    formData.set(
+      document.querySelector('#indexLigne').getAttribute('name'),
+      dataTable.row(rowTds?.[0]).data()[0]
+    )
+    formData.set(
+      document.querySelector('#rowIdOrder').getAttribute('name'),
+      dataTable.column(0).data().toArray()
+    )
+
+    const resp = await fetch(baseUrl + $form.getAttribute('action'), {
+      method: 'post',
+      body: new URLSearchParams(formData)
+    })
+    const html = await resp.text()
+
+    const isThirdPartyPayer = html.includes('Remboursement à un tiers')
+    return isThirdPartyPayer
   }
 
   checkNextPage() {
