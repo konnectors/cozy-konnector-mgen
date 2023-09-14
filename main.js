@@ -13513,6 +13513,25 @@ class MgenContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     return allAttestations
   }
 
+  async downloadFileInWorker(entry) {
+    const { fileurl, formDataArray, queryParams } = entry
+
+    let searchParams = new FormData()
+    formDataArray.forEach(item => {
+      searchParams.set(item.inputName, item.inputValue)
+    })
+    for (const i in queryParams) {
+      searchParams.set(i, queryParams[i])
+    }
+
+    const response = await ky__WEBPACK_IMPORTED_MODULE_4__["default"].post(fileurl, {
+        body: searchParams
+      })
+      .blob()
+
+    return await (0,cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_2__.blobToBase64)(response)
+  }
+
   async fetchDocuments() {
     this.log('info', 'fetchDocuments starts')
     const attestationsToCompute = []
@@ -13811,19 +13830,15 @@ class MgenContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       const inputValue = input.getAttribute('value')
       formDataArray.push({ inputName, inputValue })
     }
-    let searchParams = new FormData()
-    formDataArray.forEach(item => {
-      searchParams.set(item.inputName, item.inputValue)
-    })
-    searchParams.set('urlReleve', queryParams.urlReleve)
-    searchParams.set('dattrait', queryParams.dattrait)
-    searchParams.set('dateReleve', queryParams.dateReleve)
     const oneBill = {
       vendorRef,
       date: treatmentDate,
       treatmentDate,
       reimbursmentDate,
       beneficiary,
+      fileurl,
+      formDataArray,
+      queryParams,
       filename: `${(0,date_fns__WEBPACK_IMPORTED_MODULE_6__["default"])(
         treatmentDate,
         'yyyy-MM-dd'
@@ -13841,12 +13856,6 @@ class MgenContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         }
       }
     }
-    const response = await ky__WEBPACK_IMPORTED_MODULE_4__["default"].post(fileurl, {
-        body: searchParams
-      })
-      .blob()
-
-    oneBill.dataUri = await (0,cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_2__.blobToBase64)(response)
     return oneBill
   }
 
